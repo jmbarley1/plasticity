@@ -1,0 +1,147 @@
+---
+title: "Phenotypic Plasticity Meta-analysis"
+author: "Jordanna Barley and Morgan Kelly"
+date: "11/9/2020"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+require(here)
+require(readxl)
+require(tidyverse)
+require(plotrix)
+acc<-read.csv(here('Data','ARR_data.csv'))
+filter=dplyr::filter
+```
+
+```{r, number of studies, echo=FALSE, warning=FALSE}
+#studies per ecosystem
+acc %>% 
+  group_by(study, ecosystem) %>% 
+  summarise(mean=mean(limit_1)) %>% 
+  group_by(ecosystem) %>% 
+  summarise(n_studies=n()) %>% 
+  ggplot(aes(x=ecosystem, y=n_studies, fill=ecosystem))+
+  geom_bar(stat='identity')+
+  theme_classic()+
+  xlab('Ecosystem')+
+  ylab('Number of studies')+
+  scale_y_continuous(limits = c(0,10), breaks = c(0,2,4,6,8,10))
+
+#studies with upper and lower limits
+acc %>% 
+  group_by(study, limit_type) %>% 
+  summarise(mean=mean(limit_1)) %>% 
+  group_by(limit_type) %>% 
+  summarise(n_studies=n()) %>% 
+  ggplot(aes(x=limit_type, y=n_studies))+
+  geom_bar(stat='identity')+
+  theme_classic()+
+  scale_y_continuous(breaks = c(0,2,4,6,8,10,12))+
+  ylab('Number of studies')+
+  xlab('Thermal Limit Type')
+```
+
+```{r ARR distribution, echo=FALSE}
+acc %>% 
+  dplyr::filter(ecosystem!='terrestrial') %>%  
+  ggplot(aes(x=ARR))+
+  geom_histogram(bins=40)+
+  facet_wrap(~ecosystem)+
+  theme_classic()
+
+##distribution of ARRs for terrestrial ecosystems
+acc %>% 
+  dplyr::filter(ecosystem=='terrestrial') %>% 
+  ggplot(aes(x=ARR))+
+  geom_histogram(bins = 40)+
+  theme_classic()
+
+acc %>% 
+  filter(limit_type== 'CTmax'|limit_type=='LD50_high') %>% 
+  ggplot(aes(x=ARR))+
+  geom_histogram(bins=40)+
+  facet_wrap(~ecosystem)+
+  theme_classic()+
+  ggtitle('Upper Limits')
+
+acc %>% 
+  filter(limit_type== 'CTmin'|limit_type=='LD50_low') %>% 
+  ggplot(aes(x=ARR))+
+  geom_histogram(bins=40)+
+  facet_wrap(~ecosystem)+
+  theme_classic()+
+  ggtitle('Lower Limits')
+```
+
+```{r, mean ARR across ecosystem, echo=FALSE}
+#bar plot
+acc %>% 
+  group_by(ecosystem) %>% 
+  summarise(mean=mean(ARR), sd=std.error(ARR)) %>% 
+  ggplot(aes(x=ecosystem, y=mean, fill=ecosystem))+
+  geom_bar(stat = 'identity')+
+  geom_errorbar(aes(ymin=mean-sd, ymax=mean+sd))+
+  ylab('Mean Acclimation Response Ratio')+
+  xlab('Ecosystem')+
+  theme_classic()+
+  theme(legend.position='none')
+
+#boxplot
+acc %>% 
+  ggplot(aes(x=ecosystem, y=ARR, fill=ecosystem))+
+  geom_boxplot()+
+  theme_classic()
+```
+
+```{r, ARR vs Latitude, echo=FALSE}
+acc<-acc %>% 
+    mutate(abs_lat=abs(latitude))
+acc %>% 
+  ggplot(aes(x=abs_lat, y=ARR, color=ecosystem))+
+  geom_point(position = position_jitter(width=1), alpha=0.5)+
+  geom_smooth(method = lm)+
+  xlab('Absolute Latitude')+
+  theme_classic()
+
+acc %>% 
+  filter(limit_type== 'CTmax'|limit_type=='LD50_high') %>%
+  ggplot(aes(x=abs_lat, y=ARR, color=ecosystem))+
+  geom_point()+
+  theme_classic()+
+  xlab('Absolute Latitude')+
+  ggtitle('Upper Limits')
+
+acc %>% 
+  filter(limit_type== 'CTmin'|limit_type=='LD50_low') %>%
+  ggplot(aes(x=abs_lat, y=ARR, color=ecosystem))+
+  geom_point()+
+  theme_classic()+
+  xlab('Absolute Latitude')+
+  ggtitle('Lower Limits')
+  
+```
+
+```{r, ARR vs thermal limit, echo=FALSE}
+#upper limits
+acc %>% 
+  filter(limit_1>20) %>% 
+  ggplot(aes(x=limit_1, y=ARR, color=ecosystem))+
+  geom_point()+
+  geom_smooth(method = lm)+
+  theme_classic()+
+  xlab('Thermal Limit (\u00B0C)')+
+  ggtitle('Upper Limits')
+
+#lower limits
+acc %>% filter(limit_1<20) %>% 
+  ggplot(aes(x=limit_1, y=ARR, color=ecosystem))+
+  geom_point()+
+  geom_smooth(method = lm)+
+  theme_classic()+
+  xlab('Thermal Limit (\u00B0C)')+
+  ggtitle('Lower Limits')
+```
+
+
+
