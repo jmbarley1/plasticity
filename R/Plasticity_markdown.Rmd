@@ -1,19 +1,36 @@
 ---
 title: "Phenotypic Plasticity Meta-analysis"
 author: "Jordanna Barley and Morgan Kelly"
-date: "11/9/2020"
+date: "11/24/2020"
 output: word_document
 ---
 
 ```{r setup, include=FALSE}
+require(knitr)
+knitr::opts_chunk$set(echo = F, message = F, warning = F)
 require(here)
 require(readxl)
 require(tidyverse)
 require(plotrix)
+require(metafor)
 acc<-read.csv(here('Data','ARR_data.csv'))
+limit<-read.csv(here('Data','limit_data2_updated.csv'))
 filter=dplyr::filter
-```
 
+local({
+  if(knitr::is_latex_output()) {
+  plot_default <- knit_hooks$get("plot")
+  knit_hooks$set(plot = function(x, options) { 
+    x <- c(plot_default(x, options), "\\vspace{13pt}" )
+  })
+  }
+})
+```
+###Introduction and Rationale###
+
+The purpose of this document is to detail the exploratory data analysis of the phenotypic plasticity meta-analysis. This work is important because it is not currently known how plasticity varies within speices across latitude. Because different populations of the same species are often locally adapted to their locale, it is important to understand how plasticity varies within species' population as well as across species and ecosystem. 
+
+Plots showing the number of studies per ecosystem and the type of data we get from each:
 ```{r, number of studies, echo=FALSE, warning=FALSE}
 #studies per ecosystem
 acc %>% 
@@ -40,9 +57,100 @@ acc %>%
   scale_y_continuous(breaks = c(0,2,4,6,8,10,12))+
   ylab('Number of studies')+
   xlab('Thermal Limit Type')
+
+#how many populations does each study have?
+acc %>%   
+  group_by(study, population, ecosystem) %>% 
+  summarize(mean=mean(limit_1)) %>% 
+  group_by(study, ecosystem) %>% 
+  summarise(n_pop=n()) %>% 
+  ggplot(aes(x=reorder(study,-n_pop), y=n_pop, fill=ecosystem))+
+  geom_bar(stat = 'identity')+
+  theme(axis.text.x=element_text(angle=45, hjust=1))+
+  ylab('Number of populations')+
+  xlab('Study')
+
+#what is the average number of populations per study?
+test<-acc %>% 
+  group_by(study, population, ecosystem) %>% 
+  summarize(mean=mean(limit_1)) %>% 
+  group_by(study, ecosystem) %>% 
+  summarise(n_pop=n()) 
+
+mean(test$n_pop) #mean number of populations with 2 pops included-- 4.5 pops per study
+
+test<- test %>% 
+  filter(n_pop>2) 
+mean(test$n_pop) #mean number of populations without 2 pops included-- 5.7 pops per study
+
+#Average acclimation temperature?
+dat<- limit %>% 
+  group_by(study, acclimation_temperature) %>% 
+  summarize(mean=mean(thermal_limit)) %>% 
+  group_by(study) %>% 
+  tally() %>% 
+  filter(n>1)
+
+acc.limit<- semi_join(limit, dat, by='study')
+str(acc.limit)
+levels(droplevels(acc.limit$study))
+
+#number of acclimation temps per study
+acc.limit %>% 
+  group_by(study, acclimation_temperature) %>% 
+  summarize(mean=mean(thermal_limit)) %>% 
+  group_by(study) %>% 
+  tally() %>% 
+  ggplot(aes(x=study, y=n)) +
+  geom_bar(stat='identity')+
+  theme(axis.text.x=element_text(angle=45, hjust=1))
+
+#acclimation temp difference per study
+acc %>% 
+  mutate(acc_diff = acc_temp_2-acc_temp_1) %>% 
+  ggplot(aes(x=acc_diff, color=study))+
+  geom_histogram()+
+  scale_x_continuous(breaks=c(0,2,4,6,8,10,12,14,16,18,20))
+
+
+
+#how many studies with LT50?
+kable(acc %>% 
+  group_by(study, limit_type, ecosystem, population) %>% 
+  summarise(mean=mean(limit_1)) %>% 
+  group_by(study,ecosystem, limit_type) %>% 
+  summarise(n_pop=n()) %>% 
+  filter(limit_type=='LD50_low'|limit_type=='LD50_high') 
+)
+  
+#how many studies have exactly 2 populations
+kable(acc %>% 
+  group_by(study, population, ecosystem, limit_type) %>% 
+  summarize(mean=mean(limit_1)) %>% 
+  group_by(study,ecosystem, limit_type) %>% 
+  summarise(n_pop=n()) %>% 
+  filter(n_pop==2) %>% 
+  print(study)
+)
+  
+#full table of studies
+kable(acc %>% 
+  group_by(study, population, ecosystem, limit_type) %>% 
+  summarize(mean=mean(limit_1)) %>% 
+  group_by(study,ecosystem, limit_type) %>% 
+  summarise(n_pop=n())
+)
 ```
 
+To quantify thermal plasticity, we will be calculating acclimation response ratio (ARR) by taking the different of the limits divided by the difference in acclimation temperature: 
+(limit2-limit1)/(temp2-temp1)
+
+Here is the distribution of ARR:
 ```{r ARR distribution, echo=FALSE}
+acc %>% 
+  ggplot(aes(x=ARR))+
+  geom_histogram(bins=40)
+
 acc %>% 
   dplyr::filter(ecosystem!='terrestrial') %>%  
   ggplot(aes(x=ARR))+
@@ -55,7 +163,8 @@ acc %>%
   dplyr::filter(ecosystem=='terrestrial') %>% 
   ggplot(aes(x=ARR))+
   geom_histogram(bins = 40)+
-  theme_classic()
+  theme_classic()+
+  ggtitle('Terrestrial')
 
 acc %>% 
   filter(limit_type== 'CTmax'|limit_type=='LD50_high') %>% 
@@ -74,6 +183,7 @@ acc %>%
   ggtitle('Lower Limits')
 ```
 
+A look at mean ARR across ecosystem:
 ```{r, mean ARR across ecosystem, echo=FALSE}
 #bar plot
 acc %>% 
@@ -94,6 +204,7 @@ acc %>%
   theme_classic()
 ```
 
+ARR versus latitude:
 ```{r, ARR vs Latitude, echo=FALSE}
 acc<-acc %>% 
     mutate(abs_lat=abs(latitude))
@@ -109,6 +220,7 @@ acc %>%
   ggplot(aes(x=abs_lat, y=ARR, color=ecosystem))+
   geom_point()+
   theme_classic()+
+  geom_smooth(method = lm)+
   xlab('Absolute Latitude')+
   ggtitle('Upper Limits')
 
@@ -117,12 +229,22 @@ acc %>%
   ggplot(aes(x=abs_lat, y=ARR, color=ecosystem))+
   geom_point()+
   theme_classic()+
+  geom_smooth(method = lm)+
   xlab('Absolute Latitude')+
   ggtitle('Lower Limits')
   
 ```
 
+ARR versus thermal limit: 
 ```{r, ARR vs thermal limit, echo=FALSE}
+acc %>% 
+  ggplot(aes(x=limit_1, y=ARR, color=ecosystem))+
+  geom_point()+
+  geom_smooth(method = lm)+
+  theme_classic()+
+  xlab('Thermal Limit (\u00B0C)')+
+  ggtitle('All data')
+
 #upper limits
 acc %>% 
   filter(limit_1>20) %>% 
@@ -142,6 +264,30 @@ acc %>% filter(limit_1<20) %>%
   xlab('Thermal Limit (\u00B0C)')+
   ggtitle('Lower Limits')
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
