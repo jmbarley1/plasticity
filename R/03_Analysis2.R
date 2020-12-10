@@ -6,6 +6,7 @@ require(metafor)
 
 acc<-read.csv(here('Data','ARR_data.csv'))
 limit<-read.csv(here('Data','limit_data2_updated.csv'))
+arr<-read.csv(here('Data','ARR_data_simple.csv'))
 dat<- limit %>% 
   group_by(study, acclimation_temperature) %>% 
   summarize(mean=mean(thermal_limit)) %>% 
@@ -66,14 +67,21 @@ mod<- rma.mv(yi, vi, random=~1|study, data = acc_es)
 summary(mod)
 #surprise! yes, there is evidence for phenotypic plasticity
 
+#lets do the above analysis on ARR data that only has two acc temps per study
+str(arr)
+arr<-arr %>% 
+  group_by(study, acc_temp_1, acc_temp_2) %>% 
+  summarise(m1i=mean(limit_1), m2i=mean(limit_2), sd1i=sd(limit_1), sd2i=sd(limit_2), n1i=n())
 
+m1i<-arr$m1i
+n<-arr$n1i
+sd1i<-arr$sd1i
+m2i<- arr$m2i
+sd2i<- arr$sd2i
 
-
-
-
-
-
-
+arr_es<- escalc(measure='SMD', m1i= m1i, n1i=n, sd1i=sd1i, m2i=m2i, n2i=n, sd2i=sd2i, data=arr)
+mod<- rma.mv(yi, vi, random=~1|study, data = arr_es)
+summary(mod)
 
 
 
