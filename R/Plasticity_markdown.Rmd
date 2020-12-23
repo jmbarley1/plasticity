@@ -5,7 +5,7 @@ date: "11/24/2020"
 output: word_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, warning=FALSE}
 require(knitr)
 knitr::opts_chunk$set(echo = F, message = F, warning = F)
 require(here)
@@ -13,8 +13,8 @@ require(readxl)
 require(tidyverse)
 require(plotrix)
 require(metafor)
-acc<-read.csv(here('Data','ARR_data.csv'))
 limit<-read.csv(here('Data','limit_data2_updated.csv'))
+acc<-read_xlsx(here('Data', 'acc_data_reformatted.xlsx'))
 filter=dplyr::filter
 
 local({
@@ -25,128 +25,175 @@ local({
   })
   }
 })
-```
-###Introduction and Rationale###
 
-The purpose of this document is to detail the exploratory data analysis of the phenotypic plasticity meta-analysis. This work is important because it is not currently known how plasticity varies within speices across latitude. Because different populations of the same species are often locally adapted to their locale, it is important to understand how plasticity varies within species' population as well as across species and ecosystem. 
+str(acc)
+acc$ecosystem<- factor(acc$ecosystem)
+acc$phylum<- factor(acc$phylum)
+acc$acclimation_temperature_1<-factor(acc$acclimation_temperature_1)
+acc$acclimation_temperature_2<-factor(acc$acclimation_temperature_2)
+acc$thermal_limit_1<-as.numeric(acc$thermal_limit_1)
+acc$thermal_limit_2<-as.numeric(acc$thermal_limit_2)
+acc$thermal_limit_error_type<-factor(acc$thermal_limit_error_type)
+acc$thermal_limit_error_1<-as.numeric(acc$thermal_limit_error_1)
+acc$thermal_limit_error_2<-as.numeric(acc$thermal_limit_error_2)
+acc$upper_lower<-factor(acc$upper_lower)
+```
+### Introduction and Rationale
+
+The purpose of this document is to detail the exploratory data analysis of the phenotypic plasticity meta-analysis. This work is important because it is not currently known how plasticity varies within speices across latitude and ecosystem. Because different populations of the same species are often locally adapted to their locale, it is important to understand how plasticity varies within species' population as well as across species and ecosystem. 
+
+## Data screening, extraction, and structure
+
+# Data Screening
+
+**We include 30 studies in our analysis.**
+
+To find studies relevent to this project, we searched Web o Science using this search string:
+
+>(Thermal OR temperatures) AND (Lethal OR "Thermal tolerance" OR "Thermal limit*" OR CTmax OR CTmin OR LT50 OR "freezing >tolerance") AND ("Local* Adapt*" OR ""Latitud* Var*" OR Intraspecific)
+
+Literature searches were conducted on August 24th, 2019 and July 28th, 2020. In addition, we added studies that were not returned in the searches via Web of Sciences were included when they met the criteria. 
+
+Studies returned from the literature search were screened based on these criteria:
+*Study presents new results (not a review paper)
+*Study reports upper or lower thermal limits in degrees C
+*Study reports the same thermal limit metric for at least two populations of the same species, as defined by the study authors
+*Must be able to determine geographic coordinates of origin for each population
+*Study uses whole-organism measurements of thermal limits, with the exception of electrolyte leakage for plants
+*Studies must report sample size and some measure of variance for thermal limit measurements
+*Measurements reported cannot come from hybrid lines, cultivars, domesticated species, or later generations of experimental evolution projects
+*Measurement were made on individuals that had been acclimated under common conditions for the same amount of time
+*Studies must have experimentally measured thermal tolerance after acclimating individuals from all populations to 2 or more temperatures for the same amount of time
+*Populations of the same species cannot be from different ecosystems (marine, terrestrial, intertidal, or freshwater)
+
+# Data extraction
+
+taxon: scientific name of focal species
+*ecosystem: freshwater, intertidal, ocean, or terrestrial
+*dispersal_mode: planktonic, direct developer, and NA (for terrestrial taxa). If unsure, use “uncertain” • acclimation_time number of generations organisms reared for, <1 for within generation study
+*year: year collection / experiments occurred
+*latitude: decimal degrees
+*longitude: decimal degrees
+*life_history_stage: self
+*sex: self
+*acclimation_temperature_1: temperature (degrees C) of the lowest temperature used in experiment to compare to all other acclimation temperatures
+*acclimation_temperature_2: temperature (degrees C) this is not the lowest temperature used (i.e. higher temps being compared to lowest acclimation temperature)
+*measurement_level: describes whether limit measurements were made on individuals or populations • thermal_limit_type: methodology used to estimate thermal limit
+*thermal_limit_: mean thermal limit (degrees C) for each population at the lowest acclimation temperature
+*thermal_limit_2: mean thermal limit (degrees C) for each population for the acclimation temperatures that are not the lowest (to be compared to thermal_limit_1)
+*thermal_limit_error_type: measure used to describe spread for thermal limit
+*thermal_limit_error_1: reported error of thermal_limit_1
+*thermal_limit_error_2: reported error of thermal_limit_2
+*n: sample size measured as the number of independent estimates of thermal limits
 
 Plots showing the number of studies per ecosystem and the type of data we get from each:
-```{r, number of studies, echo=FALSE, warning=FALSE}
+```{r, EDA plots, echo=FALSE, warning=FALSE}
 #studies per ecosystem
 acc %>% 
   group_by(study, ecosystem) %>% 
-  summarise(mean=mean(limit_1)) %>% 
+  summarise(mean=mean(thermal_limit_1)) %>% 
   group_by(ecosystem) %>% 
   summarise(n_studies=n()) %>% 
   ggplot(aes(x=ecosystem, y=n_studies, fill=ecosystem))+
   geom_bar(stat='identity')+
   theme_classic()+
   xlab('Ecosystem')+
-  ylab('Number of studies')+
-  scale_y_continuous(limits = c(0,10), breaks = c(0,2,4,6,8,10))
+  ylab('Number of studies')
 
 #studies with upper and lower limits
 acc %>% 
-  group_by(study, limit_type) %>% 
-  summarise(mean=mean(limit_1)) %>% 
-  group_by(limit_type) %>% 
+  group_by(study, thermal_limit_type) %>% 
+  summarise(mean=mean(thermal_limit_1)) %>% 
+  group_by(thermal_limit_type) %>% 
   summarise(n_studies=n()) %>% 
-  ggplot(aes(x=limit_type, y=n_studies))+
+  ggplot(aes(x=thermal_limit_type, y=n_studies))+
   geom_bar(stat='identity')+
   theme_classic()+
-  scale_y_continuous(breaks = c(0,2,4,6,8,10,12))+
+  scale_y_continuous(breaks = c(0,2,4,6,8,10,12, 14, 16, 18, 20))+
   ylab('Number of studies')+
   xlab('Thermal Limit Type')
+```
+**Note: while there are 9 studies that use LT50, only 2 of them are missing estimates of variance**
 
+```{r,pops_per_study, echo=FALSE, warning=FALSE}
 #how many populations does each study have?
-acc %>%   
-  group_by(study, population, ecosystem) %>% 
-  summarize(mean=mean(limit_1)) %>% 
-  group_by(study, ecosystem) %>% 
-  summarise(n_pop=n()) %>% 
-  ggplot(aes(x=reorder(study,-n_pop), y=n_pop, fill=ecosystem))+
-  geom_bar(stat = 'identity')+
-  theme(axis.text.x=element_text(angle=45, hjust=1))+
-  ylab('Number of populations')+
-  xlab('Study')
-
-#what is the average number of populations per study?
-test<-acc %>% 
-  group_by(study, population, ecosystem) %>% 
-  summarize(mean=mean(limit_1)) %>% 
-  group_by(study, ecosystem) %>% 
-  summarise(n_pop=n()) 
-
-mean(test$n_pop) #mean number of populations with 2 pops included-- 4.5 pops per study
-
-test<- test %>% 
-  filter(n_pop>2) 
-mean(test$n_pop) #mean number of populations without 2 pops included-- 5.7 pops per study
-
-#Average acclimation temperature?
-dat<- limit %>% 
-  group_by(study, acclimation_temperature) %>% 
-  summarize(mean=mean(thermal_limit)) %>% 
-  group_by(study) %>% 
-  tally() %>% 
-  filter(n>1)
-
-acc.limit<- semi_join(limit, dat, by='study')
-str(acc.limit)
-levels(droplevels(acc.limit$study))
-
-#number of acclimation temps per study
-acc.limit %>% 
-  group_by(study, acclimation_temperature) %>% 
-  summarize(mean=mean(thermal_limit)) %>% 
-  group_by(study) %>% 
-  tally() %>% 
-  ggplot(aes(x=study, y=n)) +
-  geom_bar(stat='identity')+
-  theme(axis.text.x=element_text(angle=45, hjust=1))
-
-#acclimation temp difference per study
 acc %>% 
-  mutate(acc_diff = acc_temp_2-acc_temp_1) %>% 
-  ggplot(aes(x=acc_diff, color=study))+
-  geom_histogram()+
-  scale_x_continuous(breaks=c(0,2,4,6,8,10,12,14,16,18,20))
+  group_by(study, taxon, ecosystem) %>% 
+  summarise(n_pops=mean(number_of_populations)) %>% 
+  ggplot(aes(x=study, y=n_pops, fill=ecosystem))+
+  geom_bar(stat='identity')+
+  coord_flip()+
+  xlab('Number of populations')+
+  ylab('Study')
+```
+*Note: Armstrong et al. 2020 includes two species, which is why their population count is so high
 
+```{r, EDA plots cont., echo=FALSE, warning=FALSE}
 
-
-#how many studies with LT50?
-kable(acc %>% 
-  group_by(study, limit_type, ecosystem, population) %>% 
-  summarise(mean=mean(limit_1)) %>% 
-  group_by(study,ecosystem, limit_type) %>% 
-  summarise(n_pop=n()) %>% 
-  filter(limit_type=='LD50_low'|limit_type=='LD50_high') 
-)
+#Number of acc temps per study
+acc %>% 
+  group_by(study, acclimation_temperature_1, ecosystem) %>% 
+  summarise(mean=mean(thermal_limit_1)) %>% 
+  group_by(study, ecosystem) %>% 
+  summarise(n_acc=n()) %>% 
+  mutate(n_acc2=n_acc+1) %>% 
+  ggplot(aes(x=n_acc2, y=study, fill=ecosystem))+
+  geom_bar(stat='identity')+
+  xlab('Number of acclimation temperatures')
   
-#how many studies have exactly 2 populations
-kable(acc %>% 
-  group_by(study, population, ecosystem, limit_type) %>% 
-  summarize(mean=mean(limit_1)) %>% 
-  group_by(study,ecosystem, limit_type) %>% 
-  summarise(n_pop=n()) %>% 
-  filter(n_pop==2) %>% 
-  print(study)
-)
-  
+```
+**Note: the average number of acclimation temperatures per study is 2.63.**
+
+```{r, EDA plots cont2, echo=FALSE, warning=FALSE}
+#acclimation temp difference per study
+acc$acclimation_temperature_1<-as.numeric(as.character(acc$acclimation_temperature_1))
+acc$acclimation_temperature_2<-as.numeric(as.character(acc$acclimation_temperature_2)) 
+
+acc %>% 
+  select(study, ecosystem, acclimation_temperature_1, acclimation_temperature_2) %>% 
+  mutate(acc_diff = acclimation_temperature_2 - acclimation_temperature_1) %>% 
+  group_by(study, ecosystem) %>% 
+  mutate(max_diff=max(acc_diff)) %>% 
+  group_by(study, ecosystem) %>% 
+  summarise(mean_diff=mean(max_diff)) %>% 
+  ggplot(aes(x=study, y=mean_diff, fill=ecosystem))+
+  geom_bar(stat='identity')+
+  coord_flip()+
+  ylab('Maximum difference in acclimation temp (C)')
+```
+
+```{r, table of studies, echo=FALSE, warning=FALSE}
 #full table of studies
 kable(acc %>% 
-  group_by(study, population, ecosystem, limit_type) %>% 
-  summarize(mean=mean(limit_1)) %>% 
-  group_by(study,ecosystem, limit_type) %>% 
-  summarise(n_pop=n())
+  group_by(study, source_population, ecosystem, thermal_limit_type, acclimation_temperature_1) %>% 
+  summarize(mean=mean(thermal_limit_1)) %>% 
+  group_by(study,ecosystem, thermal_limit_type, acclimation_temperature_1) %>% 
+  summarise(n_pop=n()) %>% 
+  group_by(study, ecosystem, thermal_limit_type, n_pop) %>% 
+  summarise(n_temp=n()) %>% 
+  mutate(n_temp2=n_temp+1) %>% 
+  select(study, ecosystem, thermal_limit_type, n_pop, n_temp2) %>% 
+  rename(Study=study, Ecosystem=ecosystem, Thermal_limit_type=thermal_limit_type, Number_pops=n_pop, Number_acctemps=n_temp2)
 )
 ```
+
+```{r, error type, echo=FALSE, warning=FALSE}
+kable(acc %>% 
+  group_by(study, thermal_limit_error_type) %>%
+  summarise(mean=mean(thermal_limit_1)) %>% 
+  select(-mean)
+)
+```
+
 
 To quantify thermal plasticity, we will be calculating acclimation response ratio (ARR) by taking the different of the limits divided by the difference in acclimation temperature: 
 (limit2-limit1)/(temp2-temp1)
 
 Here is the distribution of ARR:
 ```{r ARR distribution, echo=FALSE}
+acc<- acc %>% 
+  mutate(ARR=(thermal_limit_2-thermal_limit_1)/(acclimation_temperature_2-acclimation_temperature_1))
+
 acc %>% 
   ggplot(aes(x=ARR))+
   geom_histogram(bins=40)
@@ -167,7 +214,7 @@ acc %>%
   ggtitle('Terrestrial')
 
 acc %>% 
-  filter(limit_type== 'CTmax'|limit_type=='LD50_high') %>% 
+  filter(upper_lower== 'upper') %>% 
   ggplot(aes(x=ARR))+
   geom_histogram(bins=40)+
   facet_wrap(~ecosystem)+
@@ -175,7 +222,7 @@ acc %>%
   ggtitle('Upper Limits')
 
 acc %>% 
-  filter(limit_type== 'CTmin'|limit_type=='LD50_low') %>% 
+  filter(upper_lower== 'lower') %>% 
   ggplot(aes(x=ARR))+
   geom_histogram(bins=40)+
   facet_wrap(~ecosystem)+
@@ -216,7 +263,7 @@ acc %>%
   theme_classic()
 
 acc %>% 
-  filter(limit_type== 'CTmax'|limit_type=='LD50_high') %>%
+  filter(upper_lower== 'upper') %>%
   ggplot(aes(x=abs_lat, y=ARR, color=ecosystem))+
   geom_point()+
   theme_classic()+
@@ -225,7 +272,7 @@ acc %>%
   ggtitle('Upper Limits')
 
 acc %>% 
-  filter(limit_type== 'CTmin'|limit_type=='LD50_low') %>%
+  filter(upper_lower== 'lower') %>%
   ggplot(aes(x=abs_lat, y=ARR, color=ecosystem))+
   geom_point()+
   theme_classic()+
@@ -238,7 +285,7 @@ acc %>%
 ARR versus thermal limit: 
 ```{r, ARR vs thermal limit, echo=FALSE}
 acc %>% 
-  ggplot(aes(x=limit_1, y=ARR, color=ecosystem))+
+  ggplot(aes(x=thermal_limit_1, y=ARR, color=ecosystem))+
   geom_point()+
   geom_smooth(method = lm)+
   theme_classic()+
@@ -247,8 +294,8 @@ acc %>%
 
 #upper limits
 acc %>% 
-  filter(limit_1>20) %>% 
-  ggplot(aes(x=limit_1, y=ARR, color=ecosystem))+
+  filter(thermal_limit_1>20) %>% 
+  ggplot(aes(x=thermal_limit_1, y=ARR, color=ecosystem))+
   geom_point()+
   geom_smooth(method = lm)+
   theme_classic()+
@@ -256,8 +303,8 @@ acc %>%
   ggtitle('Upper Limits')
 
 #lower limits
-acc %>% filter(limit_1<20) %>% 
-  ggplot(aes(x=limit_1, y=ARR, color=ecosystem))+
+acc %>% filter(thermal_limit_1<20) %>% 
+  ggplot(aes(x=thermal_limit_1, y=ARR, color=ecosystem))+
   geom_point()+
   geom_smooth(method = lm)+
   theme_classic()+
