@@ -13,18 +13,51 @@ str(acc)
 #first, error measurements are not all standard deviation (which metafor needs)
 acc<-acc %>% 
   filter(thermal_limit_error_1!='NA') %>% #getting rid of 2 studies that do not have error estimate with thier thermal limit means
-  mutate(sd1i= case_when(thermal_limit_error_type=='CI' ~ (((thermal_limit_1 + thermal_limit_error_1)-(thermal_limit_1 - thermal_limit_error_1))/3.92)*sqrt(n), 
-                         thermal_limit_error_type=='std_err' ~ thermal_limit_error_1*sqrt(n),
+  mutate(sd1i= case_when(thermal_limit_error_type=='CI' ~ (((thermal_limit_1 + thermal_limit_error_1)-(thermal_limit_1 - thermal_limit_error_1))/3.92)*sqrt(n_1), 
+                         thermal_limit_error_type=='std_err' ~ thermal_limit_error_1*sqrt(n_1),
                          thermal_limit_error_type=='std_dev' ~ thermal_limit_error_1), #converting error estimate for thermal_limit_error_1 to standard deviation
-         sd2i= case_when(thermal_limit_error_type=='CI' ~ (((thermal_limit_2 + thermal_limit_error_2)-(thermal_limit_2 - thermal_limit_error_2))/3.92)*sqrt(n),
-                         thermal_limit_error_type=='std_err' ~ thermal_limit_error_2*sqrt(n),
+         sd2i= case_when(thermal_limit_error_type=='CI' ~ (((thermal_limit_2 + thermal_limit_error_2)-(thermal_limit_2 - thermal_limit_error_2))/3.92)*sqrt(n_2),
+                         thermal_limit_error_type=='std_err' ~ thermal_limit_error_2*sqrt(n_2),
                          thermal_limit_error_type=='std_dev' ~ thermal_limit_error_2)) #converting error estimate for thermal_limit_error_2 to standard deviation
 
 hist(acc$sd1i)
 
+#now, lets calculate hedge's g
+
+acc_es<- escalc(measure='SMD', m1i= thermal_limit_1, n1i=n_1, sd1i=thermal_limit_error_1, m2i=thermal_limit_2, n2i=n_2, sd2i=thermal_limit_error_2, data=acc)
+acc_es<- as.data.frame(acc_es)
+str(acc_es)
+acc_es$yi<-as.numeric(as.character(acc_es$yi))
+acc_es$vi<-as.numeric(as.character(acc_es$vi))
+acc %>% 
+  group_by(study) %>% 
+  distinct(n_1) %>% 
+  print(n=56) %>% 
+  filter(n_1==1)
+  
+
+#now calculate variance/covariance matrix
+calc.v <- function(x) {
+  v <- matrix(1/x$n2[1] + outer(x$yi, x$yi, "*")/(2*x$Ni[1]), nrow=nrow(x), ncol=nrow(x))
+  diag(v) <- x$vi
+  v 
+}
+acc_es$n = unlist(lapply(split(acc_es, acc_es$study), function(x) rep(sum(x$n) + x$n[1], each=nrow(x))))
+SMD_V = lapply(split(acc_es, acc_es$study), calc.v)
+Vsmd = bldiag(SMD_V)
 
 
-asfasdf
+
+
+
+asdsafasdf
+
+
+
+
+
+
+
 
 #acc<-read.csv(here('Data','ARR_data.csv')) old stuff,probably going to delete ####
 limit<-read.csv(here('Data','limit_data2_updated.csv'))
