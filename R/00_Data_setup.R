@@ -1,5 +1,10 @@
 ##Data clean and setup
 
+require(here)
+require(raster)
+require(readxl)
+require(tidyverse)
+
 acc<- read_xlsx(here('Data','acc_data_reformatted.xlsx'))
 acc$study<-factor(acc$study)
 acc$ecosystem<- factor(acc$ecosystem)
@@ -37,14 +42,15 @@ acc<-acc %>%
          thermal_limit_error_1,          #error measurement for thermal_limit_1, given by the researchers
          thermal_limit_error_2,          #error measurement for thermal_limit_2, given by the researchers
          n,                              #sample size for a given population
-         max_temp,                       #maximum temp. measured at the source population lat/long (SST)
-         min_temp,                       #minimum temp. measured at the source population lat/long (SST)
-         mean_temp,                      #mean temp. measured at the source population lat/long (SST)
+         max_temp,                       #maximum temp. measured at the source population lat/long 
+         min_temp,                       #minimum temp. measured at the source population lat/long 
+         mean_temp,                      #mean temp. measured at the source population lat/long 
          temp_range,                     #difference between max_temp and min_temp
          upper_lower                     #factor distinguishing between upper and lower thermal limits
          ) %>% 
   mutate(ARR=(thermal_limit_2-thermal_limit_1)/(acclimation_temperature_2-acclimation_temperature_1)) #adding column for Acclimation Response Ratio (ARR), measurement of plasticity
   #higher ARR means more plasticity
+
 
 
 
