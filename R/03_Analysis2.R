@@ -5,48 +5,87 @@ require(readxl)
 require(tidyverse)
 require(metafor)
 require(plotrix)
+require(MuMIn)
 
 #read in data
 source(here('R', '00_Data_setup.R'))
 str(acc)
 
+acc<- acc %>% 
+  filter(n_1!=1 | n_2!=1)
+acc$study<-droplevels(acc$study)
+
 #first, error measurements are not all standard deviation (which metafor needs)
 acc<-acc %>% 
   filter(thermal_limit_error_1!='NA') %>% #getting rid of 2 studies that do not have error estimate with thier thermal limit means
-  mutate(sd1i= case_when(thermal_limit_error_type=='CI' ~ (((thermal_limit_1 + thermal_limit_error_1)-(thermal_limit_1 - thermal_limit_error_1))/3.92)*sqrt(n_1), 
+  mutate(sd1i= case_when(thermal_limit_error_type=='CI' ~ (thermal_limit_error_1*sqrt(n_1))/1.96, 
                          thermal_limit_error_type=='std_err' ~ thermal_limit_error_1*sqrt(n_1),
                          thermal_limit_error_type=='std_dev' ~ thermal_limit_error_1), #converting error estimate for thermal_limit_error_1 to standard deviation
-         sd2i= case_when(thermal_limit_error_type=='CI' ~ (((thermal_limit_2 + thermal_limit_error_2)-(thermal_limit_2 - thermal_limit_error_2))/3.92)*sqrt(n_2),
+         sd2i= case_when(thermal_limit_error_type=='CI' ~ (thermal_limit_error_2*sqrt(n_2))/1.96,
                          thermal_limit_error_type=='std_err' ~ thermal_limit_error_2*sqrt(n_2),
                          thermal_limit_error_type=='std_dev' ~ thermal_limit_error_2)) #converting error estimate for thermal_limit_error_2 to standard deviation
 
-hist(acc$sd1i)
+#hist(acc$sd1i)
 
 #now, lets calculate hedge's g
 
-acc_es<- escalc(measure='SMD', m1i= thermal_limit_1, n1i=n_1, sd1i=thermal_limit_error_1, m2i=thermal_limit_2, n2i=n_2, sd2i=thermal_limit_error_2, data=acc)
+acc_es<- escalc(measure='SMD', m1i= thermal_limit_2, n1i=n_2, sd1i=sd2i, m2i=thermal_limit_1, n2i=n_1, sd2i=sd1i, data=acc)
+#Thermal limit mean #2 is mean 1 in escalc to make a positive hedges g mean more plasticity
 acc_es<- as.data.frame(acc_es)
 str(acc_es)
-acc_es$yi<-as.numeric(as.character(acc_es$yi))
-acc_es$vi<-as.numeric(as.character(acc_es$vi))
-acc %>% 
-  group_by(study) %>% 
-  distinct(n_1) %>% 
-  print(n=56) %>% 
-  filter(n_1==1)
+
+#trying to figure out data structure and NAs
+#acc_es$yi<-as.numeric(as.character(acc_es$yi))
+#acc_es$vi<-as.numeric(as.character(acc_es$vi))
+#acc %>% 
+  #group_by(study) %>% 
+  #distinct(n_1) %>% 
+  #print(n=56) %>% 
+  #filter(n_1==1)
   
 
 #now calculate variance/covariance matrix
 calc.v <- function(x) {
-  v <- matrix(1/x$n2[1] + outer(x$yi, x$yi, "*")/(2*x$Ni[1]), nrow=nrow(x), ncol=nrow(x))
+  v <- matrix(1/x$n_2[1] + outer(x$yi, x$yi, "*")/(2*x$ni[1]), nrow=nrow(x), ncol=nrow(x))
   diag(v) <- x$vi
   v 
 }
-acc_es$n = unlist(lapply(split(acc_es, acc_es$study), function(x) rep(sum(x$n) + x$n[1], each=nrow(x))))
-SMD_V = lapply(split(acc_es, acc_es$study), calc.v)
-Vsmd = bldiag(SMD_V)
 
 
+acc_es$ni = unlist(lapply(split(acc_es, acc_es$study), function(x) rep(sum(x$n_1) + x$n_2[1], each=nrow(x)))) #this assumes common control, which is not what we are doing right now
+
+#making an ni colum (sum of sample size for an entire study)
+acc_es<-acc_es %>% 
+  group_by(study) %>% 
+  mutate(ni= sum(n_1)+ sum(n_2)) 
+acc_es$ni<-as.numeric(as.character(acc_es$ni))
+str(acc_es)
+
+#getting rid of rows with NA in yi for now
+#acc_es<-subset(acc_es, yi!='NA')
+#acc_es$study<-droplevels(acc_es$study)
+
+V<- bldiag(lapply(split(acc_es, acc_es$study), calc.v)) 
+
+#create variable for difference in acclimation temperature
+acc_es<- acc_es %>% 
+  mutate(temp_diff= acclimation_temperature_2-acclimation_temperature_1)
+
+#run models
+full_mod<- rma.mv(yi, V, mods= ~temp_diff + ~thermal_limit_2 + ~temp_range + ~factor(phylum) + ~factor(ecosystem), 
+                  slab = paste(study, sep = ""),
+                  random = (~1|study), 
+                  data = acc_es)
+mods<- dredge(full_mod, trace=2) #takes a look at all combinations of models that have a relative AIC value less than 2
+importance(mods) #not sure if other moderators are in this?
+
+forest(
+  acc_es$yi, 
+  acc_es$vi, 
+  annotate = FALSE, 
+  slab = full_mod$slab, 
+  pch = 15
+)
 
 
 

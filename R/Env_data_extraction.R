@@ -1,4 +1,13 @@
 #Adding temps to data set from lon/lat
+require(here)
+require(readxl)
+require(tidyverse)
+require(metafor)
+require(plotrix)
+
+#read in data
+source(here('R', '00_Data_setup.R'))
+
 
 #Loads sea surface temperature data from Bio-ORACLE (These files should be in the Data folder)
 sst_max = raster(here('Data','BioOracle',"BO_sstmax_lonlat.tif"))
