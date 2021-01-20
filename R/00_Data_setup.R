@@ -5,7 +5,7 @@ require(raster)
 require(readxl)
 require(tidyverse)
 
-acc<- read_xlsx(here('Data','acc_data_reformatted.xlsx'))
+acc<- read_xlsx(here('Data','acc_data_reformatted_sorted.xlsx'))
 acc$study<-factor(acc$study)
 acc$ecosystem<- factor(acc$ecosystem)
 acc$phylum<- factor(acc$phylum)
@@ -19,7 +19,7 @@ acc$thermal_limit_error_2<-as.numeric(as.character(acc$thermal_limit_error_2))
 acc$upper_lower<-factor(acc$upper_lower)
 
 acc<-acc %>% 
-  select(study,                          #study data was extracted from
+  dplyr::select(study,                          #study data was extracted from
          taxon,                          #latin name of species
          phylum,                         #phylum species bolongs to
          common_name,                    #common name of species
@@ -41,7 +41,8 @@ acc<-acc %>%
          thermal_limit_error_type,       #type of error association with the mean thermal limit (standard error, standard deviation, confidence intervals)
          thermal_limit_error_1,          #error measurement for thermal_limit_1, given by the researchers
          thermal_limit_error_2,          #error measurement for thermal_limit_2, given by the researchers
-         n,                              #sample size for a given population
+         n_1,                            #sample size for a given population 1
+         n_2,                            #sample size for a given population
          max_temp,                       #maximum temp. measured at the source population lat/long 
          min_temp,                       #minimum temp. measured at the source population lat/long 
          mean_temp,                      #mean temp. measured at the source population lat/long 
