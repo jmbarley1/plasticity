@@ -52,6 +52,6 @@ acc<-acc %>%
   mutate(ARR=(thermal_limit_2-thermal_limit_1)/(acclimation_temperature_2-acclimation_temperature_1)) #adding column for Acclimation Response Ratio (ARR), measurement of plasticity
   #higher ARR means more plasticity
 
-
+#checked Manis and Claussen 1986- Thermal limit values are correct 
 
 

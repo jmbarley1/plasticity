@@ -14,10 +14,10 @@ sst_max = raster(here('Data','BioOracle',"BO_sstmax_lonlat.tif"))
 sst_min = raster(here('Data','BioOracle','BO_sstmin_lonlat.tif'))
 sst_mean = raster(here('Data','BioOracle','BO_sstmean_lonlat.tif'))
 
-#Downloads CHELSA data directly from http://chelsa-climate.org/downloads/ (Files are too large to host in GitHub Repo)
-terr_mean = raster("ftp://envicloud.wsl.ch/chelsa/chelsa_V1/climatologies/bio/CHELSA_bio10_01.tif")
-terr_max = raster("ftp://envicloud.wsl.ch/chelsa/chelsa_V1/climatologies/bio/CHELSA_bio10_05.tif")
-terr_min = raster("ftp://envicloud.wsl.ch/chelsa/chelsa_V1/climatologies/bio/CHELSA_bio10_06.tif")
+#Loads terrestrial data from CHELSA
+terr_mean = raster(here('Data','CHELSA','CHELSA_bio10_01.tif'))
+terr_max = raster(here('Data','CHELSA','CHELSA_bio10_05.tif'))
+terr_min = raster(here('Data','CHELSA','CHELSA_bio10_06.tif'))
 
 #Makes empty columns for environmental data
 acc$max_temp = NA
@@ -111,3 +111,19 @@ for(h in 1:length(eco_types)){
     print(paste("Unable to recover environmental data for", length(which(is.na(tmax))), hab, "sites"))
   }
 }
+
+
+#checking
+which(acc$temp_range=='NA')
+
+#write the file
+#write.csv(x=acc, file = 'acc_data.csv')
+
+
+
+
+
+
+
+
+
