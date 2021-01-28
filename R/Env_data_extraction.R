@@ -14,10 +14,12 @@ sst_max = raster(here('Data','BioOracle',"BO_sstmax_lonlat.tif"))
 sst_min = raster(here('Data','BioOracle','BO_sstmin_lonlat.tif'))
 sst_mean = raster(here('Data','BioOracle','BO_sstmean_lonlat.tif'))
 
+#these tif files are too big to be hosted on the github server
+#downloaded from https://chelsa-climate.org/downloads/
 #Loads terrestrial data from CHELSA
-terr_mean = raster(here('Data','CHELSA','CHELSA_bio10_01.tif'))
-terr_max = raster(here('Data','CHELSA','CHELSA_bio10_05.tif'))
-terr_min = raster(here('Data','CHELSA','CHELSA_bio10_06.tif'))
+#terr_mean = raster(here('Data','CHELSA','CHELSA_bio10_01.tif'))
+#terr_max = raster(here('Data','CHELSA','CHELSA_bio10_05.tif'))
+#terr_min = raster(here('Data','CHELSA','CHELSA_bio10_06.tif'))
 
 #Makes empty columns for environmental data
 acc$max_temp = NA

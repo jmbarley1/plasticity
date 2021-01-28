@@ -5,7 +5,7 @@ require(raster)
 require(readxl)
 require(tidyverse)
 
-acc<- read_xlsx(here('Data','acc_data_reformatted_sorted.xlsx'))
+acc<- read.csv(here('Data','acc_data.csv'))
 acc$study<-factor(acc$study)
 acc$ecosystem<- factor(acc$ecosystem)
 acc$phylum<- factor(acc$phylum)

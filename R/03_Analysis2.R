@@ -40,7 +40,7 @@ hist(acc$sd1i) #making sure that sd looks right
 #now, lets calculate hedge's g
 
 acc_es<- escalc(measure='SMD', m1i= thermal_limit_2, n1i=n_2, sd1i=sd2i, m2i=thermal_limit_1, n2i=n_1, sd2i=sd1i, data=acc)
-
+#this comes up with NAs in some rows because there are some rows that report 0 error (ie cold tolerance of a fish is 0C and there is no variation in this)
 
 
 str(acc_es)
@@ -101,6 +101,87 @@ dat<-acc_es %>% #this creates a new dataframe that filters only the studies that
 dat$study<-factor(dat$study)
 V<- bldiag(lapply(split(dat, dat$study), calc.v)) 
 
+dat<-dat %>% 
+  mutate(eco_2= case_when(ecosystem== 'ocean' ~ 'marine',
+                          ecosystem== 'intertidal' ~ 'marine',
+                          ecosystem== 'terrestrial' ~ 'terrestrial',
+                          ecosystem== 'freshwater' ~ 'freshwater'))
+dat$eco_2<-factor(dat$eco_2)
+
+#separate CTmax
+upper<- dat %>% 
+  filter(upper_lower=='upper')
+upper$study<-factor(upper$study)
+
+v_upper=bldiag(lapply(split(upper, upper$study), calc.v)) 
+
+#glmulti
+rma.glmulti <- function(formula, data, ...)
+  rma(formula, vi, data=data, method="ML", ...)
+
+#working through the protocol from https://www.metafor-project.org/doku.php/tips:model_selection_with_glmulti_and_mumin?s[]=aic
+#from the Metafor website
+
+#Computing a variance/covariance matrix is not a part of this protocol, could maybe include this at a later point?
+#also not sure if random effects can be modeled with glmulti?
+
+res<- glmulti(yi ~temp_diff + temp_range + thermal_limit_1 + factor(phylum) + factor(ecosystem), 
+              level = 1,
+              fitfunction = rma.glmulti,
+              random = (~1|study), 
+              data = upper)
+print(res)
+
+top<- weightable(res)
+top<- top[top$aic <= min(top$aic) + 2,]
+top
+
+plot(res, type='s')#interesting
+#temp_range doesn't seem to be as important
+
+#MuMIn
+eval(metafor:::.MuMIn)
+
+full_mod<- rma.mv(yi, v_upper, mods= ~temp_diff + temp_range + thermal_limit_1 + factor(phylum) + factor(eco_2), 
+                  slab = paste(study, sep = ""),
+                  random = (~1|study), 
+                  data = upper)
+
+mods<-dredge(full_mod, trace=2)
+subset(mods, delta<=2, recalc.weights=FALSE)
+mods #wait now this is working?
+
+
+
+#writing out models by hand because rJava and dredge are both not working right now
+m1<- rma.mv(yi, v_upper, mods= ~temp_diff, 
+            random = (~1|study), 
+            data = upper)
+m2<- rma.mv(yi, v_upper, mods= ~temp_diff + temp_range, 
+            random = (~1|study), 
+            data = upper)
+m3<- rma.mv(yi, v_upper, mods= ~temp_diff + temp_range + thermal_limit_1, 
+            random = (~1|study), 
+            data = upper)
+m4<- rma.mv(yi, v_upper, mods= ~temp_diff + temp_range + thermal_limit_1 + factor(phylum), 
+            random = (~1|study), 
+            data = upper)
+m5<- rma.mv(yi, v_upper, mods= ~temp_diff + temp_range + thermal_limit_1 + factor(phylum) + factor(eco_2), 
+            random = (~1|study), 
+            data = upper)
+m6<- rma.mv(yi, v_upper, mods= ~temp_diff * temp_range, 
+           random = (~1|study), 
+           data = upper)
+m7<- rma.mv(yi, v_upper, mods= ~temp_diff * temp_range * thermal_limit_1, 
+            random = (~1|study), 
+            data = upper)
+m8<- rma.mv(yi, v_upper, mods= ~temp_diff * temp_range * thermal_limit_1 + factor(phylum) + factor(eco_2), 
+       random = (~1|study), 
+       data = upper)
+#AIC
+aictab(m1, m2, m3, m4, m5, m6, m7, m8)
+
+
 full_mod<- rma.mv(yi, V, mods= ~temp_diff + ~thermal_limit_1 + ~factor(phylum) + ~factor(ecosystem), 
                   slab = paste(study, sep = ""),
                   random = (~1|study), 
@@ -111,12 +192,7 @@ importance(mods) #not sure if other moderators are in this?
 coef_test(full_mod, vcov = "CR2", cluster = dat$study)
 
 #making new ecosystem variable lumping ocean and intertidal into 'marine'
-dat<-dat %>% 
-  mutate(eco_2= case_when(ecosystem== 'ocean' ~ 'marine',
-                   ecosystem== 'intertidal' ~ 'marine',
-                   ecosystem== 'terrestrial' ~ 'terrestrial',
-                   ecosystem== 'freshwater' ~ 'freshwater'))
-dat$eco_2<-factor(dat$eco_2)
+
 
 
 #simple model
@@ -148,10 +224,7 @@ dat %>%
   geom_point()
 summary(dat$upper_lower)
 
-#separate CTmax
-upper<- dat %>% 
-  filter(upper_lower=='upper')
-upper$study<-factor(upper$study)
+
 
 
 V<- bldiag(lapply(split(upper, upper$study), calc.v)) 
