@@ -309,14 +309,20 @@ summary(dat$upper_lower)
 
 
 V<- bldiag(lapply(split(upper, upper$study), calc.v)) 
-full_mod<- rma.mv(yi, V, mods= ~temp_diff + ~thermal_limit_1 + ~factor(phylum) + ~factor(eco_2), 
-                  slab = paste(study, sep = ""),
+str(upper)
+full_mod<- rma.mv(yi, V, mods= ~ temp_diff * thermal_limit_1, 
                   random = (~1|study), 
-                  data = upper)
+                  data = upper,
+                  method="ML")
 summary(full_mod)
 mods<- dredge(full_mod)
 mods
 
+ggplot(data=upper, aes(x=temp_diff,y=yi, color = thermal_limit_1))+geom_point()
+ggplot(data=upper, aes(x=thermal_limit_1,y=yi, color = temp_diff))+geom_point()
+ggplot(data=upper, aes(x=thermal_limit_1,y=ARR))+geom_point()
+which(upper$ARR>1)
+upper[37:40,]
 #create3 models long hand to see what is going on
 m1<- rma.mv(yi, V, mods= ~temp_diff, 
             slab = paste(study, sep = ""),
@@ -334,6 +340,8 @@ m3<- rma.mv(yi, V, mods= ~temp_diff * thermal_limit_1,
             random = (~1|study), 
             data = upper)
 AICctab(m1, m2, m3, weights=TRUE)
+
+
 
 #glmulti
 rma.glmulti <- function(formula, data, ...)
