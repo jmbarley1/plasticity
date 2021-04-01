@@ -115,29 +115,6 @@ upper$study<-factor(upper$study)
 
 v_upper=bldiag(lapply(split(upper, upper$study), calc.v)) 
 
-#glmulti
-rma.glmulti <- function(formula, data, ...)
-  rma(formula, vi, data=data, method="ML", ...)
-
-#working through the protocol from https://www.metafor-project.org/doku.php/tips:model_selection_with_glmulti_and_mumin?s[]=aic
-#from the Metafor website
-
-#Computing a variance/covariance matrix is not a part of this protocol, could maybe include this at a later point?
-#also not sure if random effects can be modeled with glmulti?
-
-res<- glmulti(yi ~temp_diff + temp_range + thermal_limit_1 + factor(phylum) + factor(ecosystem), 
-              level = 1,
-              fitfunction = rma.glmulti,
-              random = (~1|study), 
-              data = upper)
-print(res)
-
-top<- weightable(res)
-top<- top[top$aic <= min(top$aic) + 2,]
-top
-
-plot(res, type='s')#interesting
-#temp_range doesn't seem to be as important
 
 #MuMIn
 eval(metafor:::.MuMIn)
@@ -147,11 +124,115 @@ full_mod<- rma.mv(yi, v_upper, mods= ~temp_diff + temp_range + thermal_limit_1 +
                   random = (~1|study), 
                   data = upper)
 
-mods<-dredge(full_mod, trace=2)
+mods<-dredge(full_mod, trace=2) #will have warnings, we do not care at the moment
 subset(mods, delta<=2, recalc.weights=FALSE)
 mods #wait now this is working?
+#best preforming model
+best<- rma.mv(yi, v_upper, mods= ~temp_diff  + thermal_limit_1 + factor(phylum) + factor(eco_2), 
+       slab = paste(study, sep = ""),
+       random = (~1|study), 
+       data = upper)
+summary(best)
+funnel(best)
+funnel(best, yaxis="vi", main="Sampling Variance")
+funnel(best, yaxis="seinv", main="Inverse Standard Error")
+funnel(best, yaxis="vinv", main="Inverse Sampling Variance")
+
+upper$resid<-resid(best)
+upper %>% 
+  filter(resid>=5) %>% 
+  distinct(study)
+
+#taking Bible_et_al_2020 out- weird residuals--> looked into study and they only 'acclimated' indiv. at second temp for one hour as a 'heat shock'
+upper<-upper %>% 
+  filter(study!='Bible_et_al_2020')
+upper$study<-factor(upper$study)
+#rerun without Bible et al
+v_upper=bldiag(lapply(split(upper, upper$study), calc.v)) 
+full_mod<- rma.mv(yi, v_upper, mods= ~temp_diff + temp_range + thermal_limit_1 + factor(phylum) + factor(eco_2), 
+                  slab = paste(study, sep = ""),
+                  random = (~1|study), 
+                  data = upper)
+
+mods<-dredge(full_mod, trace=2)
+subset(mods, delta<=2, recalc.weights=FALSE)
+mods
+
+best<- rma.mv(yi, v_upper, mods= ~temp_diff  + thermal_limit_1 + factor(phylum) + factor(eco_2), 
+              slab = paste(study, sep = ""),
+              random = (~1|study), 
+              data = upper)
+
+summary(best)
+funnel(best)
+funnel(best, yaxis="vi", main="Sampling Variance")
+funnel(best, yaxis="seinv", main="Inverse Standard Error")
+funnel(best, yaxis="vinv", main="Inverse Sampling Variance")
+
+lapply(split(upper, upper$study), calc.v)
+
+#likelihood profile
+profile.rma.mv(best)
+
+#meta-analytic scatter plots
+pred<-predict(best, newmods=c(26,44.45455))
+#do this later
+
+upper %>%  #taking out freshwater data
+  filter(eco_2!='freshwater') %>% 
+  ggplot(aes(x=thermal_limit_1, y=yi, color=eco_2, shape=phylum))+
+  geom_point()+
+  stat_smooth(method='lm')
+#take fernando out
+upper$eco_2<-factor(upper$eco_2)
+
+#using phylum as a random effect
+full_mod3<- rma.mv(yi, v_upper, mods= ~temp_diff + temp_range + thermal_limit_1 + factor(eco_2), 
+                  slab = paste(study, sep = ""),
+                  random = list(~1|study, ~1|phylum), 
+                  data = upper)
+new_mods<-dredge(full_mod3, trace=2)
+summary(model.avg(new_mods, revised.var=FALSE))
 
 
+best<- rma.mv(yi, v_upper, mods= ~temp_diff  + thermal_limit_1 + factor(eco_2), 
+              slab = paste(study, sep = ""),
+              random = list(~1|study, ~1|phylum), 
+              data = upper)
+summary(best)
+funnel(best)
+funnel(best, yaxis="vi", main="Sampling Variance")
+funnel(best, yaxis="seinv", main="Inverse Standard Error")
+funnel(best, yaxis="vinv", main="Inverse Sampling Variance")
+ profile.rma.mv(best)
+
+#interactions
+full_mod2<- rma.mv(yi, v_upper, mods= ~temp_diff * temp_range * thermal_limit_1 + factor(eco_2), 
+                  slab = paste(study, sep = ""),
+                  random = list(~1|study, ~1|phylum),
+                  data = upper)
+
+mods<-dredge(full_mod2, trace=2)
+subset(mods, delta<=2, recalc.weights=FALSE)
+
+#checking for colinearity
+upper %>% 
+  ggplot(aes(x=temp_diff, y=thermal_limit_1))+
+  geom_point()
+
+upper %>% 
+  ggplot(aes(x=temp_range, y=thermal_limit_1))+
+  geom_point()
+
+
+
+#looking into dredge warnings
+is.na(upper$temp_diff)
+is.na(upper$temp_range)
+is.na(upper$thermal_limit_1)
+is.na(upper$yi)
+is.na(upper$vi)
+#hmmm, not finding any NAs
 
 #writing out models by hand because rJava and dredge are both not working right now
 m1<- rma.mv(yi, v_upper, mods= ~temp_diff, 
@@ -255,7 +336,28 @@ m3<- rma.mv(yi, V, mods= ~temp_diff * thermal_limit_1,
 AICctab(m1, m2, m3, weights=TRUE)
 
 #glmulti
+rma.glmulti <- function(formula, data, ...)
+  rma(formula, vi, data=data, method="ML", ...)
 
+#working through the protocol from https://www.metafor-project.org/doku.php/tips:model_selection_with_glmulti_and_mumin?s[]=aic
+#from the Metafor website
+
+#Computing a variance/covariance matrix is not a part of this protocol, could maybe include this at a later point?
+#also not sure if random effects can be modeled with glmulti?
+
+res<- glmulti(yi ~temp_diff + temp_range + thermal_limit_1 + factor(phylum) + factor(ecosystem), 
+              level = 1,
+              fitfunction = rma.glmulti,
+              random = (~1|study), 
+              data = upper)
+print(res)
+
+top<- weightable(res)
+top<- top[top$aic <= min(top$aic) + 2,]
+top
+
+plot(res, type='s')#interesting
+#temp_range doesn't seem to be as important
 
 viz_forest(
   x=full_mod,

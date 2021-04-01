@@ -1,0 +1,241 @@
+---
+title: "Plasticity Meta-Analysis"
+author: "Jordanna Barley"
+date: "2/11/2021"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(here)
+require(knitr)
+require(readxl)
+require(tidyverse)
+require(metafor)
+require(plotrix)
+require(MuMIn)
+require(clubSandwich)
+require(metaviz)
+require(AICcmodavg)
+require(bbmle)
+require(rJava)
+require(glmulti)
+source(here('R', '00_Data_setup.R'))
+
+comm<- comm %>% 
+  filter(thermal_limit_error_1!='NA', n_1!=1|n_2!=1, upper_lower=='upper', thermal_limit_type=='CTmax') %>% #getting rid of 2 studies that do not have error estimate with their thermal limit means
+  mutate(sd1i= case_when(thermal_limit_error_type=='CI' ~ (thermal_limit_error_1*sqrt(n_1))/1.96, 
+                         thermal_limit_error_type=='std_err' ~ thermal_limit_error_1*sqrt(n_1),
+                         thermal_limit_error_type=='std_dev' ~ thermal_limit_error_1), #converting error estimate for thermal_limit_error_1 to standard deviation
+         sd2i= case_when(thermal_limit_error_type=='CI' ~ (thermal_limit_error_2*sqrt(n_2))/1.96,
+                         thermal_limit_error_type=='std_err' ~ thermal_limit_error_2*sqrt(n_2),
+                         thermal_limit_error_type=='std_dev' ~ thermal_limit_error_2))  #converting error estimate for thermal_limit_error_2 to standard deviation
+#acc_anom calculated with acc_temp_2, because acc_temp_1 is the common control for studies that have more than 2 temps
+
+comm_es<- escalc(measure='SMD', m1i= thermal_limit_2, n1i=n_2, sd1i=sd2i, m2i=thermal_limit_1, n2i=n_1, sd2i=sd1i, data=comm)
+#this comes up with NAs in some rows because there are some rows that report 0 error (ie cold tolerance of a fish is 0C and there is no variation in this)
+
+comm_es<-comm_es %>% 
+  mutate(eco_2= case_when(ecosystem== 'ocean' ~ 'marine',
+                        ecosystem== 'intertidal' ~ 'marine',
+                        ecosystem== 'terrestrial' ~ 'terrestrial',
+                        ecosystem== 'freshwater' ~ 'freshwater'))
+comm_es$eco_2<-factor(comm_es$eco_2)
+
+#chaning one vertabrata to chordata
+comm_es$phylum<-recode(comm_es$phylum,"Vertebrata" ="Chordata")
+
+#making column for difference in acclimation temp for each study
+comm_es<- comm_es %>% 
+  mutate(temp_diff= acclimation_temperature_2-acclimation_temperature_1)
+comm_es$study<-factor(comm_es$study)
+```
+
+# Introduction
+The purpose of this document is to give brief detail to the data extraction and analysis of the plasticity meta-analysis project.
+
+## Criteria for Inclusion 
+To find studies relevent to this project, we searched Web o Science using this search string:
+
+(Thermal OR temperatures) AND (Lethal OR "Thermal tolerance" OR "Thermal limit" OR CTmax OR CTmin OR LT50 OR "freezing tolerance") AND ("Local* Adapt*" OR ""Latitud Var" OR Intraspecific)
+
+Literature searches were conducted on August 24th, 2019 and July 28th, 2020. In addition, we added studies that were not returned in the searches via Web of Sciences were included when they met the criteria. 
+
+Studies returned from the literature search were screened based on these criteria:
+* Study presents new results (not a review paper)
+* Study reports upper or lower thermal limits in degrees C
+* Study uses Critical thermal limit as the measure of thermal tolerance
+* Study reports the same thermal limit metric for at least two populations of the same species, as defined by the study authors
+* Studies must have experimentally measured thermal tolerance after acclimating individuals from all populations to 2 or more temperatures for the same amount of time
+* Study has a sample size greater than 1
+* Must be able to determine geographic coordinates of origin for each population
+* Study uses whole-organism measurements of thermal limits, with the exception of electrolyte leakage for plants
+* Studies must report sample size and some measure of variance for thermal limit measurements
+* Measurements reported cannot come from hybrid lines, cultivars, domesticated species, or later generations of experimental evolution projects
+* Measurement were made on individuals that had been acclimated under common conditions for the same amount of time
+* Populations of the same species cannot be from different ecosystems (marine, terrestrial, intertidal, or freshwater)
+
+## Review of included studies
+
+The main difference between our creiteria for inclusion and that of story #1 is that we limited our data to studies that used CTmax as their thermal limit measure. This is because of both the modeling needs of a meta-analysis as well as the question we are trying to answer. Our search yeilded **18 studies**.
+```{r, included studies 1, include=TRUE}
+#list of studies
+kable(
+  comm_es %>% 
+  rename(Study=study, Ecosystem=eco_2, Populations=number_of_populations, Temperatures=number_acc_temps) %>% 
+  distinct(Study, taxon, Ecosystem, Populations, Temperatures)
+  ) 
+
+```
+**Note: Teplot et al. 2014 has overall 7 populations, however 5 of them are in the species' invasive range. Therefore, data from only two of the populations were used in this analysis.
+
+```{r, included studies 2, echo=FALSE, warning=FALSE}
+comm_es %>% 
+  distinct(study, eco_2) %>% 
+  ggplot(aes(eco_2))+
+  geom_histogram(stat='count', binwidth = 0.2)+
+  theme_classic()+
+  xlab('Ecosystem')+
+  ylab('Number of studies')
+  
+```
+We initially had four ecosystem categories (freshwater, marine, intertidal and terrestrial), however upon closer inspection the studies where the authors said "intertidal" were actually hard to distinguish from marine species. Therefore, we decided to lump oceanic and intertidal studies into the same 'marine' category.
+
+## Quick look at ARR (accilmation response ratio)
+We chose to exclude ARR from our modeling, although I am showing it here to illustrate what our data looks like. For our analysis, we used a different measure of plasticity which I will get into farther down.
+
+### ARR by latitude
+One of the two main hypotheses that we are testing with these data is the latitude hypothesis (or variability hypothesis). This is the idea that plasticity should be higher in populations with more seasonal variability
+```{r, ARR by latitude, echo=FALSE}
+comm_es %>% 
+  ggplot(aes(x=latitude, y=ARR, color=eco_2))+
+  geom_point()+
+  geom_smooth(method='lm')+
+  theme_classic()
+```
+
+### ARR by thermal limit
+The other main hypothesis that we are testing is the trade-off hypothesis. This is the idea that plasticity should be lower in populations that have high thermal tolerance.
+```{r, ARR by tolerance, echo=FALSE}
+comm_es %>% 
+  ggplot(aes(x=thermal_limit_1, y=ARR, color=eco_2))+
+  geom_point()+
+  geom_smooth(method='lm')+
+  theme_classic()+
+  xlab('Thermal limit (C)')
+```
+
+## Analysis
+We decided to analyze these data using standardized mean difference (SMD) and an inverse-weighted meta-analytic regression. This model takes into standardizes our effect size (SMD) and weights the data by the variability seen in a particular study. We measured plasticity by computing Hedge's g (SMD) between the mean thermal tolerance of two acclimation temperatures for each population, where a higher Hedge's g means higher plasticity. Because the difference in acclimation temperatures would inlfuence the plastic response, we included this as a covariate in the model. To specifically test which hypothesis has more support (latitude and trade-off hypotheses), we included thermal tolerance and temperature range (range of temperatures observed at a given location) as covariates in our model. Because we also were interested in looking at differences in ecosystem, we included ecosystem as a covariate as well. To account for non-independence within studies and phylum, we included these as random effects.
+
+We used model selection methods to see what covariates are most important in understanding the variability within our data as well as to see which parameters are significant. We decided to center an scale the continuous predictors because the parameter estimates made the most sense when they were all on the same scale. Our data seemed to have some studies that were highly influential in the analysis. However, when we took those data points out, the results were still the same. Therefore, we dicided to include those studies in our analysis.
+
+For the sake of visualization, I am presenting estimates from our top model. However, we have decided to use model averaging because there are three models that have significant support. The results from model averaging and the top model are negligibly different.
+
+```{r, hedges g models, include=FALSE}
+calc.v <- function(x) {
+  v <- matrix(1/x$n_1[1] + outer(x$yi, x$yi, "*")/(2*x$ni[1]), nrow=nrow(x), ncol=nrow(x))
+  diag(v) <- x$vi
+  v 
+}
+
+V <- bldiag(lapply(split(comm_es, comm_es$study), calc.v))
+
+
+comm_es<- comm_es %>% 
+  mutate(temp_diff_std=scale(temp_diff, center = TRUE, scale=TRUE), 
+         temp_range_std=scale(temp_range, center = TRUE, scale=TRUE),
+         limit_1_std=scale(thermal_limit_1, center = TRUE, scale=TRUE))
+full_mod_std<- rma.mv(yi, V, mods= ~temp_diff_std + temp_range_std + limit_1_std + factor(eco_2), 
+                  slab = paste(study, sep = ""),
+                  method='ML',
+                  random = list(~1|phylum, ~1|study), 
+                  data = comm_es)
+
+comm_mods<-dredge(full_mod_std, trace = 2) #looking at all the possible models, weighting them by AICc
+avg<-model.avg(comm_mods, revised.var=FALSE)
+
+top<- rma.mv(yi, V, mods= ~temp_diff_std + limit_1_std, 
+              slab = paste(study, sep = ""),
+              random = list(~1|study, ~1|phylum), 
+              data = comm_es)
+```
+
+```{r, model outputs, include=TRUE}
+summary(avg) #this is not working right now?
+summary(top)
+
+```
+
+There a couple of things to point out here. First, our top model only have the difference in acclimation temperature and thermal limit as predictive covariates, and they are both highly significant. In the model averaging, the covariates are weighted by the amount of support they have in all the models tested, however the same predictors are still highly significant. This shows strong support for the trade-off hypothesis! Here is a meta-analytic scatter to visualize this trend (model predictions from the top model):
+
+```{r, meta-analytic scatter, echo=FALSE}
+X <- cbind(-0.275,seq(from=min(comm_es$limit_1_std),to=max(comm_es$limit_1_std),length.out = 500))
+pred<-predict.rma(top, newmods=X)
+pred<- as.data.frame(pred)
+pred$limit_1_std<- X[,2]
+ggplot(data=comm_es, aes(x=limit_1_std, y=yi))+
+  geom_point(aes(color=eco_2))+
+  geom_line(data= pred, aes(x=limit_1_std, y=pred))+
+  geom_line(data=pred, aes(x=limit_1_std, y=ci.lb), lty=2)+
+  geom_line(data=pred, aes(x=limit_1_std, y=ci.ub), lty=2)+
+  ylab('Plasticity effect size')+
+  xlab('Thermal limit')+
+  theme_classic()
+
+```
+This plot shows the data with a preditction model line from the top model (with upper and lower confidence intervals). The predictions were made based on the thermal limit with temperature difference held at the mean.
+
+In meta-analysis, it is common to compute a fail-saife number (FSN), which its basically the number of studies with a null result that would have to be included in your analysis to change your results. Our FSN is very high, however, this number is likely inflated because this is telling us how many studies would have to report a null result of no plasticity for our results to change:
+```{r, fsn, include=TRUE}
+fsn(yi, vi, data=comm_es, type="Rosenthal")
+```
+Therefore, we need to take this number with a big grain of salt because this number is not accounting for differences in plasticity across populations. Indeed, we do see strong evidence of phenotypic plasticity in our data, which is to be expected.
+
+
+This plot is of the estimates for both parameters in the top model, showing that the effect of thermal limit on plasticity is relatively strong.
+```{r, estimates top, echo=FALSE}
+estimates<-coef(top, complete=TRUE) #extracts estimates
+estimates<-as.data.frame(estimates) #makes data frame so se can be added
+estimates$se<-summary(top)$se #adding se 
+
+
+#making sure column names are right
+estimates <- cbind(rownames(estimates), estimates)
+rownames(estimates) <- NULL
+colnames(estimates) <- c("mods","estimate","se")
+
+estimates %>% 
+  filter(mods!='intrcpt') %>% 
+  ggplot(aes(x=mods, y=estimate))+
+  geom_point()+
+  geom_errorbar(aes(ymin=estimate-se, ymax=estimate+se), width=0.2)+
+  theme_classic()
+```
+
+Here is a forest plot showing the effect size per study:
+```{r, forest plot, echo=FALSE}
+comm_es %>% 
+  group_by(study) %>% 
+  mutate(mean_yi= mean(yi)) %>%
+  ggplot(aes(x=reorder(study, -mean_yi), y=yi))+
+  geom_point(position = position_jitter(width = 0.2))+
+  geom_errorbar(aes(ymin=yi-vi, ymax=yi+vi), width=0.2, position = position_jitter(width = 0.2))+
+  coord_flip()+
+  geom_hline(yintercept=0, lty=2)+
+  theme_classic()+
+  xlab('Effect size')+
+  ylab('Study')
+```
+
+Lastly, here is a funnel plot that shows the variation in residuals for the top model (this looks very similar no matter what model you are looking at).
+```{r, funnel plot, echo=FALSE}
+funnel(top)
+```
+The funnel plot shows that there are several data points that have high residuals. However, when these point are taken out, other data point replace them. We believe that high residual values arise from large differences in acclimation temperatures, which increases the plasticity effect size. When we constrain the difference in acclimation temperatures to a much smaller number, the variation in residuals does not change much, nor do the results of the model. Therefore, we decided to leave these data points in our analysis.
+
+# Final thoughts
+In sum, our data show strong support for the trade-off hypothesis. In the future, we would like to include more studies in this analysis on a wider range of secies to see if this trend holds up.
+
+
+
