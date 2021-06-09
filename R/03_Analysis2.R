@@ -32,15 +32,28 @@ acc<-acc %>%
                          thermal_limit_error_type=='std_dev' ~ thermal_limit_error_2)) #converting error estimate for thermal_limit_error_2 to standard deviation
 
 hist(acc$sd1i) #making sure that sd looks right
+<<<<<<< HEAD
+=======
+
+#In order to make Hedge's g more interpretable for our study, we made m1i, n1i, and sd1i thermal_limit_2
+#becuase this way a positive Hedge's g mean more plasticity
+>>>>>>> 7452faa2a8e2caa67c0ed72023468ba2ad0d064c
 
 #In order to make Hedge's g more interpretable for our study, we made m1i, n1i, and sd1i thermal_limit_2
 #becuase this way a positive Hedge's g mean more plasticity
 
+<<<<<<< HEAD
 
 #now, lets calculate hedge's g
 
 acc_es<- escalc(measure='SMD', m1i= thermal_limit_2, n1i=n_2, sd1i=sd2i, m2i=thermal_limit_1, n2i=n_1, sd2i=sd1i, data=acc)
 #this comes up with NAs in some rows because there are some rows that report 0 error (ie cold tolerance of a fish is 0C and there is no variation in this)
+=======
+#now, lets calculate hedge's g
+
+acc_es<- escalc(measure='SMD', m1i= thermal_limit_2, n1i=n_2, sd1i=sd2i, m2i=thermal_limit_1, n2i=n_1, sd2i=sd1i, data=acc)
+
+>>>>>>> 7452faa2a8e2caa67c0ed72023468ba2ad0d064c
 
 
 str(acc_es)
@@ -101,6 +114,7 @@ dat<-acc_es %>% #this creates a new dataframe that filters only the studies that
 dat$study<-factor(dat$study)
 V<- bldiag(lapply(split(dat, dat$study), calc.v)) 
 
+<<<<<<< HEAD
 dat<-dat %>% 
   mutate(eco_2= case_when(ecosystem== 'ocean' ~ 'marine',
                           ecosystem== 'intertidal' ~ 'marine',
@@ -263,6 +277,8 @@ m8<- rma.mv(yi, v_upper, mods= ~temp_diff * temp_range * thermal_limit_1 + facto
 aictab(m1, m2, m3, m4, m5, m6, m7, m8)
 
 
+=======
+>>>>>>> 7452faa2a8e2caa67c0ed72023468ba2ad0d064c
 full_mod<- rma.mv(yi, V, mods= ~temp_diff + ~thermal_limit_1 + ~factor(phylum) + ~factor(ecosystem), 
                   slab = paste(study, sep = ""),
                   random = (~1|study), 
@@ -273,7 +289,16 @@ importance(mods) #not sure if other moderators are in this?
 coef_test(full_mod, vcov = "CR2", cluster = dat$study)
 
 #making new ecosystem variable lumping ocean and intertidal into 'marine'
+<<<<<<< HEAD
 
+=======
+dat<-dat %>% 
+  mutate(eco_2= case_when(ecosystem== 'ocean' ~ 'marine',
+                   ecosystem== 'intertidal' ~ 'marine',
+                   ecosystem== 'terrestrial' ~ 'terrestrial',
+                   ecosystem== 'freshwater' ~ 'freshwater'))
+dat$eco_2<-factor(dat$eco_2)
+>>>>>>> 7452faa2a8e2caa67c0ed72023468ba2ad0d064c
 
 
 #simple model
@@ -305,7 +330,14 @@ dat %>%
   geom_point()
 summary(dat$upper_lower)
 
+<<<<<<< HEAD
 
+=======
+#separate CTmax
+upper<- dat %>% 
+  filter(upper_lower=='upper')
+upper$study<-factor(upper$study)
+>>>>>>> 7452faa2a8e2caa67c0ed72023468ba2ad0d064c
 
 
 V<- bldiag(lapply(split(upper, upper$study), calc.v)) 
@@ -344,6 +376,7 @@ AICctab(m1, m2, m3, weights=TRUE)
 
 
 #glmulti
+<<<<<<< HEAD
 rma.glmulti <- function(formula, data, ...)
   rma(formula, vi, data=data, method="ML", ...)
 
@@ -366,6 +399,9 @@ top
 
 plot(res, type='s')#interesting
 #temp_range doesn't seem to be as important
+=======
+
+>>>>>>> 7452faa2a8e2caa67c0ed72023468ba2ad0d064c
 
 viz_forest(
   x=full_mod,
