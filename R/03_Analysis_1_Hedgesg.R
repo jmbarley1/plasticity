@@ -15,63 +15,10 @@ require(viridis)
 require(car)
 source(here('R', '00_Data_setup.R'))
 
-#things to delete maybe####
-require(readxl)
-acc<-read_xlsx(here('Data','acc_data_reformatted_sorted.xlsx'))
-acc %>% 
-  group_by(study) %>% 
-  distinct(study) #30 studies
-
-acc %>% 
-  filter(thermal_limit_type=='LD50_high'|thermal_limit_type=='LD50_low') %>% 
-  distinct(study)
-acc %>% 
-  filter(thermal_limit_type=='CTmin') %>% 
-  distinct(study)
-
-acc$acclimation_temperature_1<-factor(acc$acclimation_temperature_1)
-acc$acclimation_temperature_2<-factor(acc$acclimation_temperature_2)
-
-acc<-acc %>% 
-  filter(n_1!=1|n_2!=1, upper_lower=='upper', thermal_limit_type=='CTmax')
-
-
-acc %>% 
-  group_by(study, acclimation_temperature_1, acclimation_temperature_2) %>% 
-  distinct(acclimation_temperature_1, acclimation_temperature_2) %>% 
-  print(n=92)
-
-acc %>% 
-  ggplot(aes(x=mean_temp, y=acclimation_temperature_1))+
-  geom_point()+
-  geom_abline(intercept=0, slope=1)
-
-acc$acclimation_temperature_1<-as.numeric(as.character(acc$acclimation_temperature_1))
-acc$acclimation_temperature_2<-as.numeric(as.character(acc$acclimation_temperature_2))
-
-acc<- acc %>% 
-  mutate(acc_anom=acclimation_temperature_1-mean_temp)
-
-acc %>% 
-  ggplot(aes(x=study, y=acc_anom, color=source_population))+
-  geom_point()+
-  coord_flip()
-
-#looking at studies with two acclimation temps
-studies<- acc %>% #this extracts the studies that used 2 acclimation temps
-  group_by(study, acclimation_temperature_1) %>% 
-  summarise(mean=mean(thermal_limit_1)) %>% 
-  group_by(study) %>% 
-  summarise(n_temps=n()) %>% 
-  filter(n_temps==1) %>% 
-  dplyr::select(study)
-
-dat<-acc %>% #this creates a new dataframe that filters only the studies that used 2 temps
-  semi_join(studies, by='study') 
-
-
 
 #common control####
+#Common control: this means that the lowest acclimation temperature for each study is used as the control for the other 
+#acclimation temperature treatments
 
 #data exploration
 comm %>% 
