@@ -45,20 +45,23 @@ comm<- comm %>%
                          thermal_limit_error_type=='std_dev' ~ thermal_limit_error_2))  #converting error estimate for thermal_limit_error_2 to standard deviation
 #acc_anom calculated with acc_temp_2, because acc_temp_1 is the common control for studies that have more than 2 temps
 
+#ni=total sample size from one study
+#ni calculated by hand because the common control needs to be only counted once per population
+
 #calculation of effect size- SMD (Hedges g)
 comm_es<- escalc(measure='SMD', m1i= thermal_limit_2, n1i=n_2, sd1i=sd2i, m2i=thermal_limit_1, n2i=n_1, sd2i=sd1i, data=comm)
 #this comes up with NAs in some rows because there are some rows that report 0 error (ie cold tolerance of a fish is 0C and there is no variation in this)
 
 #changing ecosystem factor levels, combining ocean and intertidal into on 'marine' category
 comm_es<-comm_es %>% 
-  mutate(eco_2= case_when(ecosystem== 'ocean' ~ 'marine',
+  mutate(eco_2= case_when(
+                        ecosystem== 'marine' ~ 'marine',
+                        ecosystem== 'ocean' ~ 'marine',
                         ecosystem== 'intertidal' ~ 'marine',
                         ecosystem== 'terrestrial' ~ 'terrestrial',
                         ecosystem== 'freshwater' ~ 'freshwater'))
 comm_es$eco_2<-factor(comm_es$eco_2)
 
-#chaning one vertabrata to chordata
-comm_es$phylum<-recode(comm_es$phylum,"Vertebrata" ="Chordata")
 
 #making column for difference in acclimation temp for each study
 comm_es<- comm_es %>% 
@@ -144,6 +147,12 @@ subset(comm_mods, delta<=2, recalc.weights=FALSE) #subsets full model list with 
 
 sw(comm_mods) #sum of model weights for each moderator
 
+#top model
+top<- rma.mv(yi, V, mods= ~temp_diff_std + limit_1_std, 
+             slab = paste(study, sep = ""),
+             random = list(~1|study, ~1|phylum), 
+             data = comm_es)
+
 #log likelihood profiles for the full model
 par(mfrow=c(1,1))
 profile.rma.mv(full_mod_std)
@@ -156,13 +165,13 @@ summary(avg)
 #extracting model averaged estimates
 est<-coef(avg, complete=TRUE)
 est<-as.data.frame(est)
-est$se<-rbind(0.61036, 0.26733, 0.05864, 0.04781, 1.08772, 1.01927) #cannot figure out how to extract sd
+est$se<-rbind(0.59616, 0.26098, 0.05778, 1.00411, 0.98192, 0.04776) #cannot figure out how to extract sd
 est <- cbind(rownames(est), est)
 rownames(est) <- NULL
 colnames(est) <- c("mods","estimate","se")
 
 #Figure 3: estimate plot
-jpeg(file= here('Output','figure_3_estimate_plot.jpg'), width = 1500, height = 1128)
+jpeg(file= here('Output','Revision','Revision_figure_3_estimate_plot.jpg'), width = 1500, height = 1128)
 est %>% 
   mutate(mods=fct_recode(mods,'Ann. Temp. Range'='temp_range_std', 
          'Acc. Temp. Diff.'='temp_diff_std',
@@ -207,6 +216,7 @@ comm_es$rowid<-row.names(comm_es)
 comm_es %>% 
   ggplot(aes(x=fitted, y=resid))+
   geom_text(aes(label=rowid))
+#Adding Wang et al. does not seem to have changed residuals
 
 hist(comm_es$temp_diff)
 
@@ -352,13 +362,14 @@ plot(inf_top, ylab='Cooks distance')
 which(inf_top>0.5) #same points as in the full_mod_std
 
 ## figure 1: forest plot
-jpeg(file= here('Output','forrest_plot.jpg'), width = 1500, height = 1128)
+jpeg(file= here('Output','Revision', 'Revision_forrest_plot.jpg'), width = 1500, height = 1128)
 comm_es %>% 
   group_by(study) %>% 
   mutate(mean_yi= mean(yi)) %>%
   mutate(study=fct_recode(study,'Dong et al. 2015'='Dong_et_al_2015', 
                          'Kellerman et al. 2017'='van_heerwaarden_et_al_2017',
                          'Chen et al. 2001'='Chen_et_al_2001',
+                         'Wang et al. 2019'='Wang_et_al_2019',
                          'Healy et al. 2019'='Healy_et_al_2019',
                          'Philips et al. 2015'='Philips_et_al_2015',
                          'Jensen et al. 2019'='Jensen_et_al_2019',
@@ -421,7 +432,7 @@ tapply(comm_es$temp_diff_std, comm_es$eco_2, mean)
 tapply(comm_es$temp_range_std, comm_es$eco_2, mean)
 
 #figure 2a
-jpeg(file= here('Output','figure_2a.jpg'), width = 1500, height = 1128)
+jpeg(file= here('Output','Revision','Revision_figure_2a.jpg'), width = 1500, height = 1128)
 comm_es %>% 
   mutate(eco_2=fct_recode(eco_2, 'Freshwater'='freshwater',
                         'Marine'='marine',
@@ -448,7 +459,7 @@ pred.z<- as.data.frame(pred.z)
 pred.z$temp_diff_std<- Z[,1]
 plot(pred.z$pred~pred.z$temp_diff_std)
 
-jpeg(file= here('Output','figure_2b.jpg'), width = 1500, height = 1128)
+jpeg(file= here('Output','Revision','Revision_figure_2b.jpg'), width = 1500, height = 1128)
 comm_es %>% 
   mutate(eco_2=fct_recode(eco_2, 'Freshwater'='freshwater',
                           'Marine'='marine',
@@ -468,7 +479,7 @@ comm_es %>%
 dev.off()
 
 #figure 2c
-jpeg(file= here('Output','figure_2c.jpg'), width = 1500, height = 1128)
+jpeg(file= here('Output','Revision','Revision_figure_2c.jpg'), width = 1500, height = 1128)
 comm_es %>% 
   mutate(eco_2=fct_recode(eco_2, 'Freshwater'='freshwater',
                           'Marine'='marine',
@@ -501,3 +512,4 @@ X
 pred<-predict(avg, newdata=X)
 pred<- as.data.frame(pred)
 pred$limit_1_std<- X[,3]
+#make predictions based on top model

@@ -4,8 +4,6 @@ require(raster)
 require(readxl)
 require(tidyverse)
 
-<<<<<<< HEAD
-
 comm<-read.csv(here('Data','acc_data_commoncontrol.csv'), stringsAsFactors = TRUE)
 str(comm)
 #study:                       study data was extracted from
@@ -40,7 +38,7 @@ str(comm)
 #upper_lower:                 factor distinguishing between upper and lower thermal limits
 #ARR:                         acclimation response ratio for a given comparison between two acclimation temperatures; computed by 
                               #higher ARR means more plasticity
-=======
+
 require(here)
 require(raster)
 require(readxl)
@@ -92,7 +90,7 @@ acc<-acc %>%
          ) %>% 
   mutate(ARR=(thermal_limit_2-thermal_limit_1)/(acclimation_temperature_2-acclimation_temperature_1)) #adding column for Acclimation Response Ratio (ARR), measurement of plasticity
   #higher ARR means more plasticity
->>>>>>> 7452faa2a8e2caa67c0ed72023468ba2ad0d064c
+
 
 #Other things to note: 
 
