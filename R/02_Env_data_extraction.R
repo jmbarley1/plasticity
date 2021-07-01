@@ -4,6 +4,7 @@ require(readxl)
 require(tidyverse)
 require(metafor)
 require(plotrix)
+require(raster)
 
 #read in data
 source(here('R', '00_Data_setup.R'))
@@ -11,23 +12,22 @@ source(here('R', '00_Data_setup.R'))
 
 #Loads sea surface temperature data from Bio-ORACLE (Files downloaded from the BioOracle download manager: https://www.bio-oracle.org/downloads-to-email.php)
 #files too large to host on github
-#sst_max = raster(here('Data','BioOracle',"BO_sstmax_lonlat.tif"))
-#sst_min = raster(here('Data','BioOracle','BO_sstmin_lonlat.tif'))
-#sst_mean = raster(here('Data','BioOracle','BO_sstmean_lonlat.tif'))
+#sst_max = raster('/Users/joribarley/Desktop/Bio_Oracle/BO_sstmax_lonlat.tif')
+#sst_min = raster('/Users/joribarley/Desktop/Bio_Oracle/BO_sstmin_lonlat.tif')
+#sst_mean = raster('/Users/joribarley/Desktop/Bio_Oracle/BO_sstmean_lonlat.tif')
 
 
 #these tif files are too big to be hosted on the github server
 #downloaded from https://chelsa-climate.org/downloads/
+#downloaded using wget
+#file paths:
+#https://os.zhdk.cloud.switch.ch/envicloud/chelsa/chelsa_V1/climatologies/bio/CHELSA_bio10_01.tif 
+#https://os.zhdk.cloud.switch.ch/envicloud/chelsa/chelsa_V1/climatologies/bio/CHELSA_bio10_05.tif 
+#https://os.zhdk.cloud.switch.ch/envicloud/chelsa/chelsa_V1/climatologies/bio/CHELSA_bio10_06.tif 
 #Loads terrestrial data from CHELSA
-#terr_mean = raster(here('Data','CHELSA','CHELSA_bio10_01.tif'))
-#terr_max = raster(here('Data','CHELSA','CHELSA_bio10_05.tif'))
-#terr_min = raster(here('Data','CHELSA','CHELSA_bio10_06.tif'))
-
-#Downloads CHELSA data directly from http://chelsa-climate.org/downloads/ (Files are too large to host in GitHub Repo)
-#terr_mean = raster("ftp://envicloud.wsl.ch/chelsa/chelsa_V1/climatologies/bio/CHELSA_bio10_01.tif")
-#terr_max = raster("ftp://envicloud.wsl.ch/chelsa/chelsa_V1/climatologies/bio/CHELSA_bio10_05.tif")
-#terr_min = raster("ftp://envicloud.wsl.ch/chelsa/chelsa_V1/climatologies/bio/CHELSA_bio10_06.tif")
-
+#terr_mean = raster('/Users/joribarley/Desktop/Bio_Oracle/CHELSA_bio10_01.tif')
+#terr_max = raster('/Users/joribarley/Desktop/Bio_Oracle/CHELSA_bio10_05.tif')
+#terr_min = raster('/Users/joribarley/Desktop/Bio_Oracle/CHELSA_bio10_06.tif')
 
 #Makes empty columns for environmental data
 acc$max_temp = NA

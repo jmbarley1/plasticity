@@ -314,3 +314,8 @@
 594,Yu_et_al_2018,Rhynchocypris_oxycephalus,Chordata,fish,2,freshwater,uncertain,<1,Gaizhou,40.4,122.75,uncertain,uncertain,4,14,24,population,CTmin,0,1.3,std_err,0,0.12,10,10,80,27.65,-14.45,9.225,42.1,lower,0.13
 595,Yu_et_al_2018,Rhynchocypris_oxycephalus,Chordata,fish,2,freshwater,uncertain,<1,Hangzhou,30.38,120.15,uncertain,uncertain,4,14,29,population,CTmin,0,5.27,std_err,0,0.1,10,10,80,33.1,0.75,17.5,32.35,lower,0.351333333
 596,Yu_et_al_2018,Rhynchocypris_oxycephalus,Chordata,fish,2,freshwater,uncertain,<1,Gaizhou,40.4,122.75,uncertain,uncertain,4,14,29,population,CTmin,0,3.76,std_err,0,0.12,10,10,80,27.65,-14.45,9.225,42.1,lower,0.250666667
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,Wang_et_al_2019,Lottia_limatula,Mollusca,limpet,2,marine,uncertain,<1,Elkhorn_Slough,36.35722222,121.3247222,adult,uncertain,3,13,17,individual,Ctmax,35.05076142,35.83756345,,1.602070452,2.059918152,7,8,,,,,,upper,
+,,,,,,,,,Elkhorn_Slough,36.35722222,121.3247222,adult,uncertain,3,13,21,individual,Ctmax,35.05076142,36.01522843,,1.602070452,3.535342589,7,6,,,,,,upper,
+,,,,,,,,,Tomales_Bay,38.22583333,122.4947222,adult,uncertain,3,13,17,individual,Ctmax,36.16751269,37.18274112,,1.257850454,1.463779908,8,6,,,,,,upper,
+,,,,,,,,,Tomales_Bay,38.22583333,122.4947222,adult,uncertain,3,13,21,individual,Ctmax,36.16751269,36.54822335,,1.257850454,1.159845715,8,5,,,,,,upper,
