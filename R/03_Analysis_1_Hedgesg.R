@@ -32,6 +32,7 @@ average<-comm%>%
 sum(average$n_pops)
 
 mean(average$n_pops) #average pop
+median(average$n_pops)
 sd(average$n_pops) #sd of average number of pop
 
 #getting error estimates for all studies to be in the right format
@@ -77,17 +78,11 @@ fsn(yi, vi, data=comm_es, type="Rosenthal") #very high number, BUT this is proba
 
 comm_es %>% 
   distinct(study)
-
-#ARR graphs
 comm_es %>% 
-  ggplot(aes(x=temp_range, y=ARR, color=eco_2))+
-  geom_point()+
-  labs(x = 'Annual temperature range (C)', y = 'ARR', color = 'Ecosystem')+
-  theme_classic()+
-  geom_smooth(method='lm')+
-  theme(text=element_text(size=24)) #decided against using these
-  
-  
+  distinct(taxon)
+comm_es %>% 
+  distinct(source_population)
+
 #making function for var/cov matrix, from the Gleser & Olkin example on the Metafor website
 calc.v <- function(x) {
   v <- matrix(1/x$n_1[1] + outer(x$yi, x$yi, "*")/(2*x$ni[1]), nrow=nrow(x), ncol=nrow(x))
@@ -143,7 +138,7 @@ eval(metafor:::.MuMIn)
 
 comm_mods<-dredge(full_mod_std, trace = 2) #looking at all the possible models, weighting them by AICc
 comm_mods
-subset(comm_mods, delta<=2, recalc.weights=FALSE) #subsets full model list with all models that are within 2 delta AIC units away from top model
+subset(comm_mods, delta<=4, recalc.weights=FALSE) #subsets full model list with all models that are within 2 delta AIC units away from top model
 
 sw(comm_mods) #sum of model weights for each moderator
 
@@ -165,7 +160,7 @@ summary(avg)
 #extracting model averaged estimates
 est<-coef(avg, complete=TRUE)
 est<-as.data.frame(est)
-est$se<-rbind(0.59616, 0.26098, 0.05778, 1.00411, 0.98192, 0.04776) #cannot figure out how to extract sd
+est$se<-rbind(0.48681, 0.23090, 0.05657, 0.04630, 0.99777, 0.94607) #cannot figure out how to extract sd
 est <- cbind(rownames(est), est)
 rownames(est) <- NULL
 colnames(est) <- c("mods","estimate","se")
@@ -216,7 +211,7 @@ comm_es$rowid<-row.names(comm_es)
 comm_es %>% 
   ggplot(aes(x=fitted, y=resid))+
   geom_text(aes(label=rowid))
-#Adding Wang et al. does not seem to have changed residuals
+#Adding Wang et al. and Enriquez-Urzelai et al. do not seem to have changed residuals
 
 hist(comm_es$temp_diff)
 
@@ -362,7 +357,7 @@ plot(inf_top, ylab='Cooks distance')
 which(inf_top>0.5) #same points as in the full_mod_std
 
 ## figure 1: forest plot
-jpeg(file= here('Output','Revision', 'Revision_forrest_plot.jpg'), width = 1500, height = 1128)
+jpeg(file= here('Output','Revision', 'Revision_figure_1_forrest_plot.jpg'), width = 1500, height = 1128)
 comm_es %>% 
   group_by(study) %>% 
   mutate(mean_yi= mean(yi)) %>%
@@ -372,6 +367,7 @@ comm_es %>%
                          'Wang et al. 2019'='Wang_et_al_2019',
                          'Healy et al. 2019'='Healy_et_al_2019',
                          'Philips et al. 2015'='Philips_et_al_2015',
+                         'Enriquez-Urzelai et al. 2020'='Enriquez-Urzelai_et _al',
                          'Jensen et al. 2019'='Jensen_et_al_2019',
                          'Weldon et al. 2018'='Weldon_et_al_2018',
                          'Diamond et al. 2018'='Diamond_et_al_2018',
@@ -495,21 +491,3 @@ comm_es %>%
         axis.line = element_line(size = 1.5))
 dev.off()
 
-#hedge's g against temp_range
-
-comm_es %>% 
-  ggplot(aes(x=temp_range_std, y=yi, color=eco_2))+
-  geom_point(size=3)+
-  labs(x = 'Temperature range (standardized)', y = 'Plasticity (Hedges g)', color = 'Ecosystem')+
-  theme_classic()+
-  theme(text=element_text(size=24))
-  
-##figure 2: making predictions with the model average
-summary(avg)
-#predictions not working because averaging models from a model selection object is not what predict() wants
-X <- cbind(-0.275,-0.02,seq(from=min(comm_es$limit_1_std),to=max(comm_es$limit_1_std),length.out = 100),0,1)
-X          
-pred<-predict(avg, newdata=X)
-pred<- as.data.frame(pred)
-pred$limit_1_std<- X[,3]
-#make predictions based on top model

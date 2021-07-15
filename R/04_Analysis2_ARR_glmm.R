@@ -3,13 +3,12 @@ require(tidyverse)
 require(here)
 require(readxl)
 require(glmmTMB)
+require(AICcmodavg)
+require(MuMIn)
 
-data<-read_xlsx(here('Data','acc_data_reformatted_sorted.xlsx'))
-str(data)
-data$acclimation_temperature_1<-as.numeric(data$acclimation_temperature_1)
-data$acclimation_temperature_2<-as.numeric(data$acclimation_temperature_2)
-data$thermal_limit_1<- as.numeric(data$thermal_limit_1)
-data$thermal_limit_2<-as.numeric(data$thermal_limit_2)
+data<-read.csv(here('Data','acc_data_ARR_analysis.csv'))
+
+
 
 #making ARR a column
 data<-data %>% 
@@ -23,21 +22,6 @@ data<-data %>%
   filter(ARR!='NA') #getting rid of those data points, they were missing one 
 which(is.na(data$ARR)) #checking
 
-#Why in the hell I did this originally I do not know. delete later
-#making object with the names of the studies with more than one acclimation temp
-#studies<- data%>% 
-  #group_by(study, acclimation_temperature_1) %>% 
-  #summarise(mean=mean(thermal_limit_1)) %>% 
-  #group_by(study) %>% 
-  #summarise(n_acc=n()) %>% 
-  #mutate(n_acc2=n_acc+1) %>% 
-  #filter(n_acc2>=2) %>% 
-  #select(study) 
-#studies %>% 
-  #distinct(study)
-#data %>% 
-  #distinct(study)
-
 
 data$acclimation_temperature_1<-factor(data$acclimation_temperature_1)
 data$acclimation_temperature_2<-factor(data$acclimation_temperature_2)
@@ -45,6 +29,22 @@ data$acclimation_temperature_2<-factor(data$acclimation_temperature_2)
 data$acclimation_temperature_1<-as.numeric(as.character(data$acclimation_temperature_1))
 data$acclimation_temperature_2<-as.numeric(as.character(data$acclimation_temperature_2))
 #quick EDA
+data<-data %>% 
+  mutate(eco_2= case_when(
+    ecosystem== 'marine' ~ 'marine',
+    ecosystem== 'ocean' ~ 'marine',
+    ecosystem== 'intertidal' ~ 'marine',
+    ecosystem== 'terrestrial' ~ 'terrestrial',
+    ecosystem== 'freshwater' ~ 'freshwater'))
+
+#only using upper thermal limits
+data<- data %>% 
+  filter(upper_lower=='upper')
+
+data %>% 
+  ggplot(aes(x=thermal_limit_1, y=ARR))+
+  geom_point()+
+  geom_smooth(method = 'loess')
 
 data %>% 
   ggplot(aes(x=temp_range, y=ARR))+
@@ -62,19 +62,7 @@ data %>%
   geom_smooth(mmethod = 'loess')
 
 data %>% 
-  filter(thermal_limit_type=='CTmin') %>% 
-  ggplot(aes(x=thermal_limit_1, y=ARR))+
-  geom_point()+
-  geom_smooth(method='loess')
-
-data %>% 
-  filter(thermal_limit_type=='CTmax') %>% 
-  ggplot(aes(x=thermal_limit_1, y=ARR))+
-  geom_point()+
-  geom_smooth(method = 'loess')
-
-data %>% 
-  ggplot(aes(x=ecosystem, y=ARR))+
+  ggplot(aes(x=eco_2, y=ARR))+
   geom_boxplot()
 
 data %>% 
@@ -94,15 +82,32 @@ data %>%
 #response: ARR
 #random effect: study and phylum
 
-#null
-glmmTMB(ARR~1, data=data)
+#models
 
-  
-  
-  
-  
-  
-  
-  
-  
+modlist<- list(
+  null= glmmTMB(ARR~ 1 + (1|study) + (1|phylum), data=data, family = 'gaussian'),
+  mod1= glmmTMB(ARR~ thermal_limit_1 + (1|study) + (1|phylum),  data=data, family = 'gaussian'),
+  mod2= glmmTMB(ARR ~ temp_range + (1|study) + (1|phylum),  data=data, family = 'gaussian'),
+  mod3= glmmTMB(ARR ~ eco_2 + (1|study) + (1|phylum),  data=data, family = 'gaussian'),
+  mod4= glmmTMB(ARR ~ thermal_limit_1 + temp_range + (1|study) + (1|phylum),  data=data, family = 'gaussian'),
+  mod5= glmmTMB(ARR ~ thermal_limit_1 + eco_2 + (1|study) + (1|phylum),  data=data, family = 'gaussian'),  
+  mod6= glmmTMB(ARR ~ eco_2 + temp_range + (1|study) + (1|phylum),  data=data, family = 'gaussian'),  
+  mod7= glmmTMB(ARR ~ thermal_limit_1 + temp_range + eco_2 + (1|study) + (1|phylum),  data=data, family = 'gaussian'))
+aictab(modlist)
+AICc(modlist)
 
+mod5= glmmTMB(ARR ~ thermal_limit_1 + eco_2 + (1|study) + (1|phylum),  data=data, family = 'gaussian')
+summary(mod5) 
+
+mod7= glmmTMB(ARR ~ thermal_limit_1 + temp_range + eco_2 + (1|study) + (1|phylum),  data=data, family = 'gaussian')
+summary(mod7) 
+
+mod1= glmmTMB(ARR~ thermal_limit_1 + (1|study) + (1|phylum),  data=data, family = 'gaussian')
+summary(mod1)  
+ 
+mod4= glmmTMB(ARR ~ thermal_limit_1 + temp_range + (1|study) + (1|phylum),  data=data, family = 'gaussian')
+summary(mod4)  
+ 
+
+modavg<-model.avg(mod1, mod5, mod4, mod7, rank = AICc)
+summary(modavg)
