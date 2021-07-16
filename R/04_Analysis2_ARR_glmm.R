@@ -9,12 +9,6 @@ require(MuMIn)
 data<-read.csv(here('Data','acc_data_ARR_analysis.csv'))
 
 
-
-#making ARR a column
-data<-data %>% 
-  select(-c(...1, primary, checked_by, needs_review, envtl_data_reported, notes)) %>% #cleaning data a little
-  mutate(ARR= ((thermal_limit_2-thermal_limit_1)/(acclimation_temperature_2-acclimation_temperature_1)))
-
 #are there NAs in the ARR column?
 sum(is.na(data$ARR)) #2
 which(is.na(data$ARR)) #One Armstrong and one Villeneuve data point
@@ -94,8 +88,8 @@ modlist<- list(
   mod6= glmmTMB(ARR ~ eco_2 + temp_range + (1|study) + (1|phylum),  data=data, family = 'gaussian'),  
   mod7= glmmTMB(ARR ~ thermal_limit_1 + temp_range + eco_2 + (1|study) + (1|phylum),  data=data, family = 'gaussian'))
 aictab(modlist)
-AICc(modlist)
 
+#top model
 mod5= glmmTMB(ARR ~ thermal_limit_1 + eco_2 + (1|study) + (1|phylum),  data=data, family = 'gaussian')
 summary(mod5) 
 
@@ -111,3 +105,27 @@ summary(mod4)
 
 modavg<-model.avg(mod1, mod5, mod4, mod7, rank = AICc)
 summary(modavg)
+
+
+resid_mod5<-resid(mod5)
+fitted_mod5<-fitted(mod5)
+plot(resid_mod5~fitted_mod5)
+
+resid_mod7<-resid(mod7)
+fitted_mod7<-fitted(mod7)
+plot(resid_mod7~fitted_mod7)
+
+resid_mod1<-resid(mod1)
+fitted_mod1<-fitted(mod1)
+plot(resid_mod1~fitted_mod1)
+
+resid_mod4<-resid(mod4)
+fitted_mod4<-fitted(mod4)
+plot(resid_mod4~fitted_mod4)
+
+#there seems to be some pattern, but they all look very similar
+
+
+
+
+
