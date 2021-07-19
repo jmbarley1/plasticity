@@ -125,7 +125,35 @@ plot(resid_mod4~fitted_mod4)
 
 #there seems to be some pattern, but they all look very similar
 
+#estimate plot-model average
+est<-coef(modavg, complete=TRUE)
+est<-as.data.frame(est)
+est$se<-rbind(0.338882, 0.009592, 0.165392, 0.173100, 0.004546) #cannot figure out how to extract sd
+est <- cbind(rownames(est), est)
+rownames(est) <- NULL
+colnames(est) <- c("mods","estimate","se")
 
+jpeg(file= here('Output','Revision','Revision_supp_figure_3.jpg'), width = 1500, height = 1128)
+est %>% 
+  mutate(mods=fct_recode(mods,'Ann. Temp. Range'='cond(temp_range)', 
+                         'Mean Thermal Limit'='cond(thermal_limit_1)',
+                         'Freshwater'='cond((Int))',
+                         'Terrestrial'='cond(eco_2terrestrial)',
+                         'Marine'='cond(eco_2marine)')) %>% 
+  mutate(se=se*1.96) %>% 
+  ggplot(aes(x=mods, y=estimate))+
+  geom_point(size=6)+
+  geom_errorbar(aes(ymin=estimate-se, ymax=estimate+se), width=0.3, size=1.5)+
+  theme_classic()+
+  theme(text=element_text(size=24))+
+  geom_hline(yintercept=0, linetype="dashed", size=2)+
+  coord_flip()+
+  xlab('Predictor')+
+  ylab('Parameter Estimate')+
+  theme(text=element_text(size=38), 
+        axis.text.x = element_text(size=36), 
+        axis.line = element_line(size = 1.5))
+dev.off()
 
 
 
